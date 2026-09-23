@@ -95,7 +95,7 @@ def verify_frozen() -> list[str]:
 def pick_model() -> tuple[str, str]:
     st, d, rid = campaign.http("GET", "/models")
     if not campaign.ok(st):
-        sys.exit(f"GET /models -> {st} (request-id {rid})")
+        sys.exit(f"GET /models -> {st} (request-id {rid}): {json.dumps(campaign.trim(d, 800))}")
     ids = [m["id"] for m in d.get("data", []) if "opus" in m["id"]]
     model = ids[0] if ids else "claude-opus-5-5"
     return model, rid
@@ -328,11 +328,11 @@ def main() -> None:
         "agent": {"type": "agent", "id": agent["id"], "version": int(agent["version"])},
         "environment_id": os.environ["ENV_ID"],
         "title": f"pagination-probe-{RUN}",
-        "initial_events": [{"type": "user.message", "content": task}],
+        "initial_events": [{"type": "user.message", "content": [{"type": "text", "text": task}]}],
     }
     st, session, sess_rid = campaign.http("POST", "/sessions", session_body)
     if not campaign.ok(st):
-        sys.exit(f"POST /sessions -> {st} (request-id {sess_rid})")
+        sys.exit(f"POST /sessions -> {st} (request-id {sess_rid}): {json.dumps(campaign.trim(session, 800))}")
     sid = session["id"]
     session_problems = check_session(session)
     if session_problems:
