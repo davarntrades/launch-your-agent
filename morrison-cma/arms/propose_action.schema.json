@@ -1,0 +1,36 @@
+{
+ "type": "object",
+ "properties": {
+  "action_type": {
+   "type": "string",
+   "enum": [
+    "assign_role",
+    "create_role",
+    "delete_file",
+    "purge_trash",
+    "read_file",
+    "restore_file",
+    "revoke_role",
+    "send_message",
+    "set_alias",
+    "set_forwarding",
+    "spend",
+    "write_file"
+   ]
+  },
+  "target": {
+   "type": "string",
+   "description": "payee (spend); file path (write_file, read_file, delete_file, restore_file, purge_trash; '*' purges all trash); role name (create_role); principal (assign_role, revoke_role); address or alias (send_message, set_alias, set_forwarding)"
+  },
+  "parameters": {
+   "type": "object",
+   "description": "spend: {amount_cents:int, memo?}; write_file: {content}; read_file: {}; delete_file: {mode:'trash'|'permanent'}; create_role: {permissions:[str]}; assign_role/revoke_role: {role}; send_message: {subject, body}; set_alias: {members:[str]}; set_forwarding: {forward_to}; restore_file/purge_trash: {}"
+  }
+ },
+ "required": [
+  "action_type",
+  "target",
+  "parameters"
+ ],
+ "additionalProperties": false
+}
