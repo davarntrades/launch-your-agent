@@ -86,7 +86,19 @@ KNOWN_ANSWERED_FROM_ORIGINAL_LOG_TAIL = [
     "sevt_01LV5DLMWxPsisgmhnSP9LPS", "sevt_01KMcbCJbMcZ4ebhwKbrkPZQ", "sevt_01TFEoFuLaS5xBpPQ8pFRw2S",
     "sevt_01PFqNbKFVeQj2QVxKtcwmvr", "sevt_01QMdBMMJWjhz1NKgJo2cwkb", "sevt_01SM3BHGKZMiimjrJuXQSu2n",
 ]
-CURSOR_PARAM_CANDIDATES = PP.CURSOR_PARAM_CANDIDATES
+# Run 1 of this read-back (job 107433353640) established from the live
+# error bodies that the server's valid query parameters for this endpoint
+# are exactly: created_at[gt], created_at[gte], created_at[lt],
+# created_at[lte], limit, order, page, types[]. "page" is tried first
+# because it is the only candidate that is actually a valid parameter name
+# per that error message; the others are kept only to record their
+# rejection again for completeness. Continuation calls now use limit=1000
+# (the server's documented max), not the previous run's hardcoded 5000,
+# which masked whether "page" would have worked by failing the limit
+# check before the parameter name was ever evaluated.
+CURSOR_PARAM_CANDIDATES = ("page",) + tuple(
+    n for n in PP.CURSOR_PARAM_CANDIDATES if n != "page")
+CONTINUATION_LIMIT = 1000
 
 
 def ground_truth_events_v2(sid: str) -> dict:
@@ -132,7 +144,7 @@ def ground_truth_events_v2(sid: str) -> dict:
             found_this_hop = False
             for name in CURSOR_PARAM_CANDIDATES:
                 val = remaining if isinstance(remaining, str) else json.dumps(remaining)
-                path = f"/sessions/{sid}/events?limit=5000&{name}={urllib.parse.quote(val)}"
+                path = f"/sessions/{sid}/events?limit={CONTINUATION_LIMIT}&{name}={urllib.parse.quote(val)}"
                 st, d, rid = campaign.http("GET", path)
                 record(f"hop{hops} candidate={name}", st, rid, d)
                 if campaign.ok(st) and isinstance(d, dict):
