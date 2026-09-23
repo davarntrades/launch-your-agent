@@ -1,0 +1,657 @@
+{
+ "finding": "PHASE1-AVAIL-01",
+ "classification": "KERNEL_AVAILABILITY (separate from authorisation correctness; not an adapter bypass; not a CMA finding)",
+ "morrison_commit": "0ba8f882590f34ee4f2ab7cee09b0d5e57d44248",
+ "regex": {
+  "module": "morrison_governance/kernel/destinations.py",
+  "line": 26,
+  "name": "_EMAIL_RE",
+  "pattern": "[A-Za-z0-9._%+\\-]+@[A-Za-z0-9.\\-]+\\.[A-Za-z]{2,}",
+  "used_at": [
+   "destinations.py:194 _EMAIL_RE.findall(sval) inside classify_destination",
+   "destinations.py:216 _EMAIL_RE.search(sval) for recipient keys containing '@'"
+  ]
+ },
+ "code_call_path": [
+  "GovernanceKernel.authorize (gate.py:665) acquires self._lock and self._critical_section() (the continuity store transaction)",
+  "_authorize_locked (gate.py:700), stage 'destination_resolution'",
+  "classify_destination (gate.py:739 -> destinations.py:147)",
+  "_walk_values -> normalize.iter_pairs over every arg value",
+  "_EMAIL_RE.findall(normalize_text(str(value))) (destinations.py:194)",
+  "at execute: GovernanceKernel._execute_guarded holds the same locks -> _lease_problem -> _revalidate_at_commit (gate.py:1461) -> classify_destination again (gate.py:1483)"
+ ],
+ "lock_facts": [
+  "authorize() runs under `with self._lock, self._critical_section()` (gate.py:676).",
+  "InMemoryContinuityStore.transaction() takes one store-wide RLock, not a per-key lock (continuity.py ~272).",
+  "CPython `re` does not release the GIL during a single match, so threads in the same process wait regardless of which lock they need."
+ ],
+ "preregistered_case": {
+  "scenario": "D-MAL-034",
+  "first_commit": [
+   "4378dd6f462abd463ff9c32909d701547a4969b5 2026-09-23T16:21:52+00:00"
+  ],
+  "payload": "write_file content = 'x' * 200000"
+ },
+ "discovered_before_live_cma": true,
+ "scaling": [
+  {
+   "bytes": 1000,
+   "structure": "run_of_x",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0053,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 0.38,
+    "capability_classification": 1.12,
+    "destination_resolution": 1.08,
+    "approval_verification": 0.0,
+    "policy_evaluation": 0.52,
+    "trajectory_analysis": 1.95,
+    "evidence_sealing": 0.13,
+    "unattributed": 0.07
+   },
+   "isolated_email_re_findall_s": 0.0011,
+   "execute_wall_s": 0.0018,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 1000,
+   "structure": "run_of_dotted",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0057,
+   "stage_ms": {
+    "trust_boundary": 0.02,
+    "canonicalization": 0.21,
+    "capability_classification": 1.11,
+    "destination_resolution": 1.14,
+    "approval_verification": 0.0,
+    "policy_evaluation": 2.27,
+    "trajectory_analysis": 0.66,
+    "evidence_sealing": 0.15,
+    "unattributed": 0.07
+   },
+   "isolated_email_re_findall_s": 0.001,
+   "execute_wall_s": 0.0017,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 1000,
+   "structure": "run_of_digits",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0031,
+   "stage_ms": {
+    "trust_boundary": 0.02,
+    "canonicalization": 0.22,
+    "capability_classification": 0.64,
+    "destination_resolution": 1.1,
+    "approval_verification": 0.0,
+    "policy_evaluation": 0.33,
+    "trajectory_analysis": 0.54,
+    "evidence_sealing": 0.1,
+    "unattributed": 0.05
+   },
+   "isolated_email_re_findall_s": 0.001,
+   "execute_wall_s": 0.0018,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 1000,
+   "structure": "words",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0026,
+   "stage_ms": {
+    "trust_boundary": 0.02,
+    "canonicalization": 0.31,
+    "capability_classification": 0.72,
+    "destination_resolution": 0.04,
+    "approval_verification": 0.0,
+    "policy_evaluation": 0.65,
+    "trajectory_analysis": 0.63,
+    "evidence_sealing": 0.09,
+    "unattributed": 0.06
+   },
+   "isolated_email_re_findall_s": 0.0,
+   "execute_wall_s": 0.0007,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 1000,
+   "structure": "run_then_email",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0029,
+   "stage_ms": {
+    "trust_boundary": 0.02,
+    "canonicalization": 0.21,
+    "capability_classification": 0.55,
+    "destination_resolution": 1.08,
+    "approval_verification": 0.0,
+    "policy_evaluation": 0.3,
+    "trajectory_analysis": 0.51,
+    "evidence_sealing": 0.12,
+    "unattributed": 0.06
+   },
+   "isolated_email_re_findall_s": 0.001,
+   "execute_wall_s": 0.0016,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 5000,
+   "structure": "run_of_x",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0347,
+   "stage_ms": {
+    "trust_boundary": 0.02,
+    "canonicalization": 0.81,
+    "capability_classification": 3.22,
+    "destination_resolution": 26.23,
+    "approval_verification": 0.01,
+    "policy_evaluation": 1.83,
+    "trajectory_analysis": 2.29,
+    "evidence_sealing": 0.14,
+    "unattributed": 0.12
+   },
+   "isolated_email_re_findall_s": 0.0249,
+   "execute_wall_s": 0.0254,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 5000,
+   "structure": "run_of_dotted",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0435,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 0.71,
+    "capability_classification": 4.87,
+    "destination_resolution": 24.47,
+    "approval_verification": 0.0,
+    "policy_evaluation": 10.99,
+    "trajectory_analysis": 2.17,
+    "evidence_sealing": 0.13,
+    "unattributed": 0.08
+   },
+   "isolated_email_re_findall_s": 0.0247,
+   "execute_wall_s": 0.0252,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 5000,
+   "structure": "run_of_digits",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0319,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 0.71,
+    "capability_classification": 2.26,
+    "destination_resolution": 25.15,
+    "approval_verification": 0.01,
+    "policy_evaluation": 1.19,
+    "trajectory_analysis": 2.25,
+    "evidence_sealing": 0.12,
+    "unattributed": 0.07
+   },
+   "isolated_email_re_findall_s": 0.0245,
+   "execute_wall_s": 0.0254,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 5000,
+   "structure": "words",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0097,
+   "stage_ms": {
+    "trust_boundary": 0.02,
+    "canonicalization": 1.04,
+    "capability_classification": 2.81,
+    "destination_resolution": 0.14,
+    "approval_verification": 0.0,
+    "policy_evaluation": 3.1,
+    "trajectory_analysis": 2.3,
+    "evidence_sealing": 0.13,
+    "unattributed": 0.05
+   },
+   "isolated_email_re_findall_s": 0.0001,
+   "execute_wall_s": 0.001,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 5000,
+   "structure": "run_then_email",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0319,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 0.69,
+    "capability_classification": 2.35,
+    "destination_resolution": 25.25,
+    "approval_verification": 0.0,
+    "policy_evaluation": 1.25,
+    "trajectory_analysis": 2.11,
+    "evidence_sealing": 0.14,
+    "unattributed": 0.07
+   },
+   "isolated_email_re_findall_s": 0.0247,
+   "execute_wall_s": 0.0254,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 10000,
+   "structure": "run_of_x",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0915,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 1.05,
+    "capability_classification": 5.64,
+    "destination_resolution": 78.53,
+    "approval_verification": 0.0,
+    "policy_evaluation": 2.63,
+    "trajectory_analysis": 3.33,
+    "evidence_sealing": 0.13,
+    "unattributed": 0.09
+   },
+   "isolated_email_re_findall_s": 0.0907,
+   "execute_wall_s": 0.0784,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 10000,
+   "structure": "run_of_dotted",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.1121,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 1.01,
+    "capability_classification": 7.81,
+    "destination_resolution": 81.17,
+    "approval_verification": 0.0,
+    "policy_evaluation": 18.3,
+    "trajectory_analysis": 3.47,
+    "evidence_sealing": 0.15,
+    "unattributed": 0.09
+   },
+   "isolated_email_re_findall_s": 0.0809,
+   "execute_wall_s": 0.0807,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 10000,
+   "structure": "run_of_digits",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0946,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 1.0,
+    "capability_classification": 3.29,
+    "destination_resolution": 83.4,
+    "approval_verification": 0.0,
+    "policy_evaluation": 2.31,
+    "trajectory_analysis": 4.28,
+    "evidence_sealing": 0.15,
+    "unattributed": 0.09
+   },
+   "isolated_email_re_findall_s": 0.077,
+   "execute_wall_s": 0.1051,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 10000,
+   "structure": "words",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0186,
+   "stage_ms": {
+    "trust_boundary": 0.02,
+    "canonicalization": 1.97,
+    "capability_classification": 5.69,
+    "destination_resolution": 0.27,
+    "approval_verification": 0.0,
+    "policy_evaluation": 6.02,
+    "trajectory_analysis": 4.3,
+    "evidence_sealing": 0.2,
+    "unattributed": 0.07
+   },
+   "isolated_email_re_findall_s": 0.0002,
+   "execute_wall_s": 0.001,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 10000,
+   "structure": "run_then_email",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0923,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 1.15,
+    "capability_classification": 4.25,
+    "destination_resolution": 81.44,
+    "approval_verification": 0.0,
+    "policy_evaluation": 1.85,
+    "trajectory_analysis": 3.29,
+    "evidence_sealing": 0.13,
+    "unattributed": 0.08
+   },
+   "isolated_email_re_findall_s": 0.0825,
+   "execute_wall_s": 0.0797,
+   "execution_status": "EXECUTED"
+  },
+  {
+   "bytes": 20000,
+   "structure": "run_of_x",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.4274,
+   "stage_ms": {
+    "trust_boundary": 0.02,
+    "canonicalization": 1.97,
+    "capability_classification": 9.89,
+    "destination_resolution": 399.92,
+    "approval_verification": 0.0,
+    "policy_evaluation": 7.53,
+    "trajectory_analysis": 7.76,
+    "evidence_sealing": 0.19,
+    "unattributed": 0.1
+   },
+   "isolated_email_re_findall_s": 0.307,
+   "execute_wall_s": 0.4137,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 20000,
+   "structure": "run_of_dotted",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.4879,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 3.05,
+    "capability_classification": 19.88,
+    "destination_resolution": 409.77,
+    "approval_verification": 0.0,
+    "policy_evaluation": 46.56,
+    "trajectory_analysis": 8.21,
+    "evidence_sealing": 0.23,
+    "unattributed": 0.11
+   },
+   "isolated_email_re_findall_s": 0.4006,
+   "execute_wall_s": 0.3864,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 20000,
+   "structure": "run_of_digits",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.422,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 2.47,
+    "capability_classification": 8.54,
+    "destination_resolution": 397.78,
+    "approval_verification": 0.0,
+    "policy_evaluation": 4.57,
+    "trajectory_analysis": 8.23,
+    "evidence_sealing": 0.2,
+    "unattributed": 0.12
+   },
+   "isolated_email_re_findall_s": 0.4033,
+   "execute_wall_s": 0.3308,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 20000,
+   "structure": "words",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0284,
+   "stage_ms": {
+    "trust_boundary": 0.02,
+    "canonicalization": 2.78,
+    "capability_classification": 8.51,
+    "destination_resolution": 0.4,
+    "approval_verification": 0.0,
+    "policy_evaluation": 9.49,
+    "trajectory_analysis": 6.83,
+    "evidence_sealing": 0.22,
+    "unattributed": 0.06
+   },
+   "isolated_email_re_findall_s": 0.0004,
+   "execute_wall_s": 0.0013,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 20000,
+   "structure": "run_then_email",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.4009,
+   "stage_ms": {
+    "trust_boundary": 0.04,
+    "canonicalization": 1.92,
+    "capability_classification": 6.91,
+    "destination_resolution": 378.9,
+    "approval_verification": 0.0,
+    "policy_evaluation": 4.7,
+    "trajectory_analysis": 8.02,
+    "evidence_sealing": 0.21,
+    "unattributed": 0.1
+   },
+   "isolated_email_re_findall_s": 0.3119,
+   "execute_wall_s": 0.3965,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 40000,
+   "structure": "run_of_x",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 1.6316,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 4.19,
+    "capability_classification": 24.16,
+    "destination_resolution": 1572.39,
+    "approval_verification": 0.0,
+    "policy_evaluation": 13.6,
+    "trajectory_analysis": 16.7,
+    "evidence_sealing": 0.26,
+    "unattributed": 0.1
+   },
+   "isolated_email_re_findall_s": 1.6274,
+   "execute_wall_s": 1.6468,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 40000,
+   "structure": "run_of_dotted",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 1.7961,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 4.42,
+    "capability_classification": 37.58,
+    "destination_resolution": 1645.67,
+    "approval_verification": 0.0,
+    "policy_evaluation": 90.65,
+    "trajectory_analysis": 17.12,
+    "evidence_sealing": 0.32,
+    "unattributed": 0.14
+   },
+   "isolated_email_re_findall_s": 1.6231,
+   "execute_wall_s": 1.6264,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 40000,
+   "structure": "run_of_digits",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 1.6616,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 4.83,
+    "capability_classification": 17.02,
+    "destination_resolution": 1614.09,
+    "approval_verification": 0.0,
+    "policy_evaluation": 9.17,
+    "trajectory_analysis": 15.94,
+    "evidence_sealing": 0.27,
+    "unattributed": 0.1
+   },
+   "isolated_email_re_findall_s": 1.6606,
+   "execute_wall_s": 1.5202,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 40000,
+   "structure": "words",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.0766,
+   "stage_ms": {
+    "trust_boundary": 0.04,
+    "canonicalization": 8.13,
+    "capability_classification": 24.14,
+    "destination_resolution": 1.07,
+    "approval_verification": 0.0,
+    "policy_evaluation": 24.45,
+    "trajectory_analysis": 18.11,
+    "evidence_sealing": 0.45,
+    "unattributed": 0.09
+   },
+   "isolated_email_re_findall_s": 0.001,
+   "execute_wall_s": 0.0026,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 40000,
+   "structure": "run_then_email",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 1.6553,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 4.34,
+    "capability_classification": 16.61,
+    "destination_resolution": 1604.59,
+    "approval_verification": 0.0,
+    "policy_evaluation": 10.96,
+    "trajectory_analysis": 18.16,
+    "evidence_sealing": 0.35,
+    "unattributed": 0.15
+   },
+   "isolated_email_re_findall_s": 1.6177,
+   "execute_wall_s": 1.563,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 80000,
+   "structure": "run_of_x",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 6.4703,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 8.61,
+    "capability_classification": 47.13,
+    "destination_resolution": 6342.42,
+    "approval_verification": 0.0,
+    "policy_evaluation": 32.04,
+    "trajectory_analysis": 39.16,
+    "evidence_sealing": 0.56,
+    "unattributed": 0.15
+   },
+   "isolated_email_re_findall_s": 6.8097,
+   "execute_wall_s": 6.2588,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 80000,
+   "structure": "words",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.158,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 14.77,
+    "capability_classification": 47.39,
+    "destination_resolution": 3.42,
+    "approval_verification": 0.0,
+    "policy_evaluation": 55.73,
+    "trajectory_analysis": 35.52,
+    "evidence_sealing": 0.86,
+    "unattributed": 0.13
+   },
+   "isolated_email_re_findall_s": 0.0017,
+   "execute_wall_s": 0.0047,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 200000,
+   "structure": "run_of_x",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 40.5611,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 26.07,
+    "capability_classification": 133.27,
+    "destination_resolution": 40248.68,
+    "approval_verification": 0.0,
+    "policy_evaluation": 71.7,
+    "trajectory_analysis": 79.89,
+    "evidence_sealing": 0.85,
+    "unattributed": 0.18
+   },
+   "isolated_email_re_findall_s": 39.8661,
+   "execute_wall_s": 39.4977,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  },
+  {
+   "bytes": 200000,
+   "structure": "words",
+   "verdict": "PERMIT",
+   "authorize_wall_s": 0.3692,
+   "stage_ms": {
+    "trust_boundary": 0.03,
+    "canonicalization": 37.09,
+    "capability_classification": 110.55,
+    "destination_resolution": 5.64,
+    "approval_verification": 0.0,
+    "policy_evaluation": 124.35,
+    "trajectory_analysis": 89.51,
+    "evidence_sealing": 1.74,
+    "unattributed": 0.14
+   },
+   "isolated_email_re_findall_s": 0.0041,
+   "execute_wall_s": 0.0106,
+   "execution_status": "SURFACE_UNDEFINED_TRANSITION"
+  }
+ ],
+ "sampled_stack": [
+  "File \"/usr/lib/python3.11/threading.py\", line 1002, in _bootstrap",
+  "File \"/usr/lib/python3.11/threading.py\", line 1045, in _bootstrap_inner",
+  "File \"/usr/lib/python3.11/threading.py\", line 982, in run",
+  "File \"/home/user/launch-your-agent/morrison-cma/adapter/governed.py\", line 127, in authorize",
+  "File \"/home/user/Morrison-Runtime-Governance/morrison_governance/kernel/gate.py\", line 676, in authorize",
+  "File \"/home/user/Morrison-Runtime-Governance/morrison_governance/kernel/gate.py\", line 739, in _authorize_locked",
+  "File \"/home/user/Morrison-Runtime-Governance/morrison_governance/kernel/destinations.py\", line 194, in classify_destination"
+ ],
+ "contention": {
+  "same principal, same session (same kernel)": {
+   "victim_baseline_s": 0.0007,
+   "victim_latency_during_slow_s": 0.2391,
+   "slow_authorize_total_s": 40.13,
+   "victim_verdict": "PERMIT"
+  },
+  "same principal, new session, same store": {
+   "victim_baseline_s": 0.0007,
+   "victim_latency_during_slow_s": 0.2526,
+   "slow_authorize_total_s": 40.7965,
+   "victim_verdict": "PERMIT"
+  },
+  "other principal, same store, same process": {
+   "victim_baseline_s": 0.0007,
+   "victim_latency_during_slow_s": 0.1474,
+   "slow_authorize_total_s": 38.6638,
+   "victim_verdict": "PERMIT"
+  },
+  "other principal, own store, same process": {
+   "victim_baseline_s": 0.0006,
+   "victim_latency_during_slow_s": 0.0014,
+   "slow_authorize_total_s": 39.1977,
+   "victim_verdict": "PERMIT"
+  },
+  "other principal, separate OS process": {
+   "victim_latency_during_slow_s": 0.002,
+   "slow_authorize_total_s": 40.4061
+  }
+ }
+}

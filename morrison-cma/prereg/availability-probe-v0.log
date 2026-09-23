@@ -1,0 +1,45 @@
+== scaling ==
+   1000 run_of_x        PERMIT   authorize    0.005s  _EMAIL_RE    0.001s  execute 0.002
+   1000 run_of_dotted   PERMIT   authorize    0.006s  _EMAIL_RE    0.001s  execute 0.002
+   1000 run_of_digits   PERMIT   authorize    0.003s  _EMAIL_RE    0.001s  execute 0.002
+   1000 words           PERMIT   authorize    0.003s  _EMAIL_RE    0.000s  execute 0.001
+   1000 run_then_email  PERMIT   authorize    0.003s  _EMAIL_RE    0.001s  execute 0.002
+   5000 run_of_x        PERMIT   authorize    0.035s  _EMAIL_RE    0.025s  execute 0.025
+   5000 run_of_dotted   PERMIT   authorize    0.044s  _EMAIL_RE    0.025s  execute 0.025
+   5000 run_of_digits   PERMIT   authorize    0.032s  _EMAIL_RE    0.024s  execute 0.025
+   5000 words           PERMIT   authorize    0.010s  _EMAIL_RE    0.000s  execute 0.001
+   5000 run_then_email  PERMIT   authorize    0.032s  _EMAIL_RE    0.025s  execute 0.025
+  10000 run_of_x        PERMIT   authorize    0.092s  _EMAIL_RE    0.091s  execute 0.078
+  10000 run_of_dotted   PERMIT   authorize    0.112s  _EMAIL_RE    0.081s  execute 0.081
+  10000 run_of_digits   PERMIT   authorize    0.095s  _EMAIL_RE    0.077s  execute 0.105
+  10000 words           PERMIT   authorize    0.019s  _EMAIL_RE    0.000s  execute 0.001
+  10000 run_then_email  PERMIT   authorize    0.092s  _EMAIL_RE    0.083s  execute 0.08
+  20000 run_of_x        PERMIT   authorize    0.427s  _EMAIL_RE    0.307s  execute 0.414
+  20000 run_of_dotted   PERMIT   authorize    0.488s  _EMAIL_RE    0.401s  execute 0.386
+  20000 run_of_digits   PERMIT   authorize    0.422s  _EMAIL_RE    0.403s  execute 0.331
+  20000 words           PERMIT   authorize    0.028s  _EMAIL_RE    0.000s  execute 0.001
+  20000 run_then_email  PERMIT   authorize    0.401s  _EMAIL_RE    0.312s  execute 0.397
+  40000 run_of_x        PERMIT   authorize    1.632s  _EMAIL_RE    1.627s  execute 1.647
+  40000 run_of_dotted   PERMIT   authorize    1.796s  _EMAIL_RE    1.623s  execute 1.626
+  40000 run_of_digits   PERMIT   authorize    1.662s  _EMAIL_RE    1.661s  execute 1.52
+  40000 words           PERMIT   authorize    0.077s  _EMAIL_RE    0.001s  execute 0.003
+  40000 run_then_email  PERMIT   authorize    1.655s  _EMAIL_RE    1.618s  execute 1.563
+  80000 run_of_x        PERMIT   authorize    6.470s  _EMAIL_RE    6.810s  execute 6.259
+  80000 words           PERMIT   authorize    0.158s  _EMAIL_RE    0.002s  execute 0.005
+ 200000 run_of_x        PERMIT   authorize   40.561s  _EMAIL_RE   39.866s  execute 39.498
+ 200000 words           PERMIT   authorize    0.369s  _EMAIL_RE    0.004s  execute 0.011
+== sampled call path (80 KB run_of_x) ==
+   File "/usr/lib/python3.11/threading.py", line 1002, in _bootstrap
+   File "/usr/lib/python3.11/threading.py", line 1045, in _bootstrap_inner
+   File "/usr/lib/python3.11/threading.py", line 982, in run
+   File "/home/user/launch-your-agent/morrison-cma/adapter/governed.py", line 127, in authorize
+   File "/home/user/Morrison-Runtime-Governance/morrison_governance/kernel/gate.py", line 676, in authorize
+   File "/home/user/Morrison-Runtime-Governance/morrison_governance/kernel/gate.py", line 739, in _authorize_locked
+   File "/home/user/Morrison-Runtime-Governance/morrison_governance/kernel/destinations.py", line 194, in classify_destination
+== contention (200 KB run_of_x in flight) ==
+same principal, same session (same kernel)   baseline 0.0007s  during 0.239s  (slow call 40.13s)
+same principal, new session, same store      baseline 0.0007s  during 0.253s  (slow call 40.80s)
+other principal, same store, same process    baseline 0.0007s  during 0.147s  (slow call 38.66s)
+other principal, own store, same process     baseline 0.0006s  during 0.001s  (slow call 39.20s)
+other principal, separate OS process         during 0.0020s  (slow call 40.41s)
+wrote /home/user/launch-your-agent/morrison-cma/prereg/AVAILABILITY-EMAIL-RE.json
