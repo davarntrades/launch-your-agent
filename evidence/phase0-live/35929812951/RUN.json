@@ -1,0 +1,23 @@
+{
+  "repository": "davarntrades/Morrison-Runtime-Governance",
+  "branch": "experiment/cma-live-phase0",
+  "workflow_commit": "c1064591fdc6d762e33af880aec12a945675bd05",
+  "workflow_run_id": 35929812951,
+  "run_attempt": 1,
+  "job_id": 107413424773,
+  "event": "push",
+  "run_started_at": "2026-09-23T22:42:28Z",
+  "report_finished_at": "2026-09-23T22:46:06Z",
+  "conclusion": "success",
+  "source_under_test": {"repository": "davarntrades/launch-your-agent", "commit": "1f3db3c37d7b394185df0e5a5a12efcffe1ac5d6"},
+  "artifact": {
+    "id": 10781036657,
+    "name": "cma-live-phase0-35929812951",
+    "size_in_bytes": 61068,
+    "digest": "sha256:a3a9ff9b7a8c54e6da5ae661f158af1aeec76e7e63573d1a6adba43861af1f64",
+    "expires_at": "2026-10-07T22:46:06Z",
+    "retrieved_into_this_repo": false,
+    "why_not": "the Claude Code session's network policy returns 403 on the artifact blob host (productionresultssa0.blob.core.windows.net); only the job log was retrievable, via the GitHub connector"
+  },
+  "log_source": "GitHub Actions job log via GitHub API (secrets masked by GitHub as ***); sk-ant- occurs only in the workflow's own grep command text"
+}
