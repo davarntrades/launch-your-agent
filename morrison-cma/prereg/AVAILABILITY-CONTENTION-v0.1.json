@@ -1,0 +1,73 @@
+{
+ "finding": "PHASE1-AVAIL-01",
+ "probe_version": "contention v0.1 (corrects H-5)",
+ "payload": "write_file content = 'x' * 200000",
+ "cpu_count": 4,
+ "python": "3.11.15",
+ "rows": [
+  {
+   "case": "thread: same principal, same kernel",
+   "victim_baseline_s": 0.0011,
+   "victim_issued_at_s": 1.0,
+   "victim_thread_woke_late_by_s": 39.141,
+   "victim_latency_from_planned_issue_s": 39.348,
+   "slow_authorize_s": 40.296,
+   "victim_finished_before_slow_call": false,
+   "victim_verdict": "PERMIT"
+  },
+  {
+   "case": "thread: same principal, new session, same in-memory store",
+   "victim_baseline_s": 0.0008,
+   "victim_issued_at_s": 1.0,
+   "victim_thread_woke_late_by_s": 39.125,
+   "victim_latency_from_planned_issue_s": 39.364,
+   "slow_authorize_s": 40.309,
+   "victim_finished_before_slow_call": false,
+   "victim_verdict": "PERMIT"
+  },
+  {
+   "case": "thread: other principal, same in-memory store",
+   "victim_baseline_s": 0.0008,
+   "victim_issued_at_s": 1.0,
+   "victim_thread_woke_late_by_s": 38.779,
+   "victim_latency_from_planned_issue_s": 38.957,
+   "slow_authorize_s": 39.955,
+   "victim_finished_before_slow_call": false,
+   "victim_verdict": "PERMIT"
+  },
+  {
+   "case": "thread: other principal, own in-memory store",
+   "victim_baseline_s": 0.0008,
+   "victim_issued_at_s": 1.0,
+   "victim_thread_woke_late_by_s": 39.605,
+   "victim_latency_from_planned_issue_s": 39.607,
+   "slow_authorize_s": 40.723,
+   "victim_finished_before_slow_call": true,
+   "victim_verdict": "PERMIT"
+  },
+  {
+   "case": "process: other principal, own store",
+   "victim_issued_at_s": 1.0,
+   "victim_latency_from_planned_issue_s": 0.002,
+   "slow_authorize_s": 40.148,
+   "victim_verdict": "PERMIT",
+   "store": "own InMemoryContinuityStore"
+  },
+  {
+   "case": "process: same principal, shared FileContinuityStore",
+   "victim_issued_at_s": 1.0,
+   "victim_latency_from_planned_issue_s": 37.852,
+   "slow_authorize_s": 38.763,
+   "victim_verdict": "PERMIT",
+   "store": "shared FileContinuityStore"
+  },
+  {
+   "case": "process: other principal, shared FileContinuityStore",
+   "victim_issued_at_s": 1.0,
+   "victim_latency_from_planned_issue_s": 39.681,
+   "slow_authorize_s": 40.676,
+   "victim_verdict": "PERMIT",
+   "store": "shared FileContinuityStore"
+  }
+ ]
+}
