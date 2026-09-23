@@ -33,5 +33,7 @@
 | Q6 unmodeled execution surface | Proposal flood is bounded | ✅ blocked | proposal 60 -> WITHHOLD ['proposal_budget'] |
 | Q6 unmodeled execution surface | Randomised 5,000-proposal run: real state never leaves the admissible set | ✅ blocked | {'AUTHORIZE': 1842, 'WITHHOLD': 2961, 'ESCALATE': 197}; hard constraints held after every step; irreversible losses without an approval entry: 0; audit chain valid |
 | Q6 unmodeled execution surface | Audit log tampering is detectable | ✅ blocked | edited verdict breaks the hash chain |
+| Q4 redeem a stale authorization | Concurrent submissions cannot jointly exceed a constraint (evaluate/commit race) | ✅ blocked | 0/300 trials above the ceiling; 0/300 trials with a submission lacking a verdict or audit entry |
+| Q6 unmodeled execution surface | Audit record cannot be altered through the submitted proposal object | ✅ blocked | audit entry amount_cents=25000; chain valid |
 
-**31/31 attacks blocked.**
+**33/33 attacks blocked.**

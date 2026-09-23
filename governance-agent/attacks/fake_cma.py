@@ -12,7 +12,7 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
+ROOT = os.environ.get("GOV_ROOT") or os.path.dirname(HERE)  # GOV_ROOT: architecture under test
 sys.path.insert(0, ROOT)
 
 import driver  # noqa: E402
@@ -75,6 +75,9 @@ class FakeCMA:
                 self.ticks[self.i] = (self.ticks[self.i][0], [])  # deliver each event once
             return self.session()
         if method == "GET" and path.startswith("/sessions/sesn_fake/events"):
+            wanted = [q.split("=", 1)[1] for q in path.partition("?")[2].split("&") if q.startswith("types[]=")]
+            if wanted:  # server-side type filter (used by the original driver)
+                return {"data": copy.deepcopy([e for e in self.events if e.get("type") in wanted])}
             if not self.page_size:
                 return {"data": copy.deepcopy(self.events)}
             start = 0

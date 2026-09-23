@@ -2,3 +2,4 @@
 IDS.env
 runs/
 transcript*.txt
+__pycache__/

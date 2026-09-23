@@ -15,7 +15,7 @@
       <div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <h1>governed-worker</h1>
-          <span class="statepill planned"><span class="led planned"></span>STAGED · EVALS 12/12 · ATTACKS 31/31 · NOT LAUNCHED</span>
+          <span class="statepill planned"><span class="led planned"></span>STAGED · EVALS 12/12 · ORIGINAL 14 BYPASS → HARDENED 33/33 · NOT LAUNCHED</span>
         </div>
         <div class="byline">Claude Managed Agent + client-side governance layer · created 2026-09-23</div>
       </div>
@@ -109,22 +109,22 @@
   </div>
 
   <div class="lane full">
-    <div class="lane-head"><span class="node-icon">🛡️</span><h2>Mediation boundary · attack suite</h2><span class="lane-meta">31/31 blocked · BOUNDARY.md</span></div>
+    <div class="lane-head"><span class="node-icon">🛡️</span><h2>Mediation boundary · attack suite</h2><span class="lane-meta">original 4293483: 14 bypass · hardened: 33/33 · FALSIFICATION.md</span></div>
     <div class="lane-body">
       <div class="overflow">
       <table>
-        <thead><tr><th>Path</th><th>Attacks</th><th>Enforced by</th></tr></thead>
+        <thead><tr><th>Path</th><th>Original</th><th>Hardened</th><th>Enforced by</th></tr></thead>
         <tbody>
-          <tr><td>Q1 bypass propose_action</td><td><span class="tag good">4/4</span></td><td>only tool is custom <code>propose_action</code>; text never parsed; other tool names halt</td></tr>
-          <tr><td>Q2 MCP / tool execution</td><td><span class="tag good">6/6</span></td><td>config attestation before session + per poll; any <code>agent.tool_use</code>/<code>agent.mcp_tool_use</code> halts; all event pages scanned</td></tr>
-          <tr><td>Q3 mutate via sandbox</td><td><span class="tag good">3/3</span></td><td>state never mounted; no egress; Executor holds the only reference</td></tr>
-          <tr><td>Q4 stale authorization</td><td><span class="tag good">6/6</span></td><td>digest-bound CAS commit; single-use ids; approval re-evaluates</td></tr>
-          <tr><td>Q5 manipulate evaluated state</td><td><span class="tag good">7/7</span></td><td>frozen policy; strict detached proposals; recipients resolved on simulated state</td></tr>
-          <tr><td>Q6 unmodelled surface</td><td><span class="tag good">5/5</span></td><td>frame condition; unknown actions withheld; flood bound; 5,000-step fuzz invariant</td></tr>
+          <tr><td>Q1 bypass propose_action</td><td><span class="tag warn">1 bypass · 1 gap</span></td><td><span class="tag good">4/4</span></td><td>only tool is custom <code>propose_action</code>; text never parsed; other tool names halt</td></tr>
+          <tr><td>Q2 MCP / tool execution</td><td><span class="tag warn">6 bypass</span></td><td><span class="tag good">6/6</span></td><td>config attestation before session + per poll; any <code>agent.tool_use</code>/<code>agent.mcp_tool_use</code> halts; all event pages scanned</td></tr>
+          <tr><td>Q3 mutate via sandbox</td><td><span class="tag warn">1 bypass (in-process)</span></td><td><span class="tag good">3/3</span></td><td>state never mounted; no egress; Executor holds the only reference</td></tr>
+          <tr><td>Q4 stale authorization</td><td><span class="tag warn">3 bypass · 2 gap</span></td><td><span class="tag good">7/7</span></td><td>digest-bound CAS commit; single-use ids; approval re-evaluates</td></tr>
+          <tr><td>Q5 manipulate evaluated state</td><td><span class="tag warn">1 bypass · 2 gap</span></td><td><span class="tag good">7/7</span></td><td>frozen policy; strict detached proposals; recipients resolved on simulated state</td></tr>
+          <tr><td>Q6 unmodelled surface</td><td><span class="tag warn">2 bypass · 1 gap</span></td><td><span class="tag good">6/6</span></td><td>frame condition; unknown actions withheld; flood bound; 5,000-step fuzz invariant</td></tr>
         </tbody>
       </table>
       </div>
-      <p class="small sub" style="margin:.5em 0 0;">Residuals (detection or trust, not construction): CMA honoring the tool config, API-key holders, in-process code, human approvers, semantics inside a declared footprint, full-chain audit rewrite, real-system TOCTOU. See BOUNDARY.md.</p>
+      <p class="small sub" style="margin:.5em 0 0;">Original = unmodified commit 4293483 attacked after the fact (hardening preceded the attack; recorded in FALSIFICATION.md). Residuals (detection or trust, not construction): CMA honoring the tool config, API-key holders, in-process code, human approvers, semantics inside a declared footprint, full-chain audit rewrite, real-system TOCTOU. See BOUNDARY.md.</p>
     </div>
   </div>
 

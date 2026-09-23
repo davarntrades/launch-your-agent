@@ -184,5 +184,17 @@
     "attack": "Audit log tampering is detectable",
     "blocked": true,
     "evidence": "edited verdict breaks the hash chain"
+  },
+  {
+    "group": "Q4 redeem a stale authorization",
+    "attack": "Concurrent submissions cannot jointly exceed a constraint (evaluate/commit race)",
+    "blocked": true,
+    "evidence": "0/300 trials above the ceiling; 0/300 trials with a submission lacking a verdict or audit entry"
+  },
+  {
+    "group": "Q6 unmodeled execution surface",
+    "attack": "Audit record cannot be altered through the submitted proposal object",
+    "blocked": true,
+    "evidence": "audit entry amount_cents=25000; chain valid"
   }
 ]

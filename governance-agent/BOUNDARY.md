@@ -2,7 +2,9 @@
 
 Claim under test: **every change to the real state passes through Governor → Executor, and what the Executor commits is exactly what the Governor evaluated.** Policy accuracy (`evals/`) is a separate question. This file is about the boundary.
 
-Run: `python3 attacks/run_attacks.py` (attacks) · `python3 attacks/mutation_check.py` (removes each guard and confirms that at least one attack then reports OPEN).
+The original architecture (`4293483`) failed this: 14 BYPASS / 6 GAP of 33 attacks. See `FALSIFICATION.md` for the sequence original → attack → result → harden → retest. Everything below describes the hardened code.
+
+Run: `python3 attacks/run_original.py` (original) · `python3 attacks/run_attacks.py` (hardened) · `python3 attacks/mutation_check.py` (removes each guard and confirms that at least one attack then reports OPEN).
 
 ## Where the boundary sits
 
@@ -26,9 +28,9 @@ The real state and the policy exist only inside the driver process. The Worker's
 | 1 | Bypass `propose_action` | The Worker has no other tool. Plain text is never parsed into a proposal. A custom tool under any other name halts the session | `agent.json`; `attest.check_agent` before every session; `attest.split_events` | Q1 × 4 |
 | 2 | MCP / tool execution outside the Governor | No `mcp_servers`, `mcp_toolset` or `agent_toolset`, and MCP networking is off. Any `agent.tool_use` / `agent.mcp_tool_use` event halts the session. Session-level tool overrides are detected on every poll. Hidden pages of event history are scanned (fail closed) | `check_agent`, `check_environment`, `check_session` (per poll), `list_events` pagination | Q2 × 6 |
 | 3 | Mutate through the sandbox | The state isn't in the sandbox: session create sends no `resources`, `vault_ids` or files. The environment has no egress. Inside the driver process only the Executor holds a reference; `Pipeline.state` returns a copy | environment config; `Executor` private `_state` + `snapshot()` | Q3 × 3 |
-| 4 | Redeem a stale authorization | AUTHORIZE is bound to `(state_digest, proposal_digest, result_digest)`. Commit is compare-and-swap, and the committed state is the evaluated simulation itself, not a re-application. Ids are single-use (the CMA event id, not a Worker-chosen value). ESCALATE approval re-evaluates on the current state, and approval is a Python call no proposal type can reach | `Executor.commit`, `Pipeline._seen_ids`, `Pipeline.approve`, a lock around evaluate + commit | Q4 × 6 |
+| 4 | Redeem a stale authorization | AUTHORIZE is bound to `(state_digest, proposal_digest, result_digest)`. Commit is compare-and-swap, and the committed state is the evaluated simulation itself, not a re-application. Ids are single-use (the CMA event id, not a Worker-chosen value). ESCALATE approval re-evaluates on the current state, and approval is a Python call no proposal type can reach | `Executor.commit`, `Pipeline._seen_ids`, `Pipeline.approve`, a lock around evaluate + commit (a two-thread race overspent the original in ~98% of trials) | Q4 × 7 |
 | 5 | Manipulate the evaluated state | Policy is a frozen object outside the state, so no transition receives it. Proposals are JSON-round-tripped (detached) with exact keys and types. Recipients are resolved on the simulated state (alias shadowing, forwarding, cycles). Unrecognized spellings fail closed | `Policy`, `actions.normalize`, `resolve_recipients` | Q5 × 7 |
-| 6 | Unmodelled execution surface | Unknown action types are WITHHOLD. Each transition has a declared write footprint, and a write outside it is WITHHOLD (frame condition). Proposal count is bounded. A randomized 5,000-proposal run (seed 7) found the hard constraints holding after every step and no irreversible loss without an approval entry | `FOOTPRINT` check in `evaluate`, `proposal_budget`, `hard_invariants_hold` | Q6 × 5 |
+| 6 | Unmodelled execution surface | Unknown action types are WITHHOLD. Each transition has a declared write footprint, and a write outside it is WITHHOLD (frame condition). Proposal count is bounded. A randomized 5,000-proposal run (seed 7) found the hard constraints holding after every step and no irreversible loss without an approval entry | `FOOTPRINT` check in `evaluate`, `proposal_budget`, `hard_invariants_hold` | Q6 × 6 |
 
 ## What is NOT structurally closed (residuals)
 

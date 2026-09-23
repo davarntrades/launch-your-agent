@@ -37,9 +37,16 @@ Policy (ceiling, allowlist, baseline permissions) is a frozen object outside the
 
 Caveat: the cases and the predicates were written together, so 12/12 shows the mechanism works as specified — it is not a measure against unseen sequences. `NEXT-DIRECTIONS.md` v2 lists more held-back sequences.
 
-## Mediation boundary (attack suite)
+## Mediation boundary: falsification record
 
-Separate from policy accuracy: can anything reach the real state without passing Governor → Executor, or commit something other than what was evaluated? `attacks/run_attacks.py` runs 31 attacks across the six paths (bypass `propose_action`, MCP/tool execution, sandbox mutation, stale authorization, evaluated-state manipulation, unmodelled surfaces). Several drive the real `driver.py` live loop against a fake CMA API that emits hostile event streams. **31/31 blocked.** `attacks/mutation_check.py` removes each guard in turn and confirms the suite then reports OPEN. What is *not* structurally closed is listed in `BOUNDARY.md`.
+Separate from policy accuracy: can anything reach the real state without passing Governor → Executor, or commit something other than what was evaluated? 33 attacks across six paths (bypass `propose_action`, MCP/tool execution, sandbox mutation, stale authorization, evaluated-state manipulation, unmodelled surfaces). Several drive the real driver loop against a fake CMA API that emits hostile event streams.
+
+| Architecture | PASS | GAP | BYPASS |
+|---|---|---|---|
+| **Original** `4293483` (unmodified, extracted from git) | 13 | 6 | **14** (7 Worker-reachable) |
+| Hardened (retest) | 33 blocked | — | 0 |
+
+The original held for the config as shipped, but nothing enforced it: an MCP or bash call outside the Governor went unnoticed and unaudited. Hardening came *before* the original was attacked; that process error, and the full sequence, are recorded in `FALSIFICATION.md`. `attacks/mutation_check.py` removes each guard and confirms the suite reports OPEN (12/12). What is *not* structurally closed is in `BOUNDARY.md`.
 
 ## Run it
 
@@ -47,7 +54,9 @@ Separate from policy accuracy: can anything reach the real state without passing
 cd governance-agent
 python3 evals/run_evals.py                 # 12 cases, exits 0 on pass
 python3 -m unittest discover -s tests      # 8 unit tests (determinism, no mutation, escalation, audit tamper)
-python3 attacks/run_attacks.py             # 31 boundary attacks, exits 0 only if all blocked
+python3 attacks/run_original.py            # 33 attacks against the ORIGINAL commit (falsification record)
+python3 attacks/run_attacks.py             # 33 attacks against the hardened code, exits 0 only if all blocked
+python3 attacks/compare.py                 # joins both into FALSIFICATION.md
 python3 attacks/mutation_check.py          # each guard removed → suite must report OPEN
 python3 driver.py scripted                 # 13-proposal demo through the full pipeline, no key
 ./launch.sh                                # live: attest config → CMA Worker + client-side Governor (needs ANTHROPIC_API_KEY)

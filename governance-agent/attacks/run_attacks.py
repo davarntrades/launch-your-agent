@@ -417,6 +417,25 @@ def _():
     return not verify_chain(pipe.audit.entries), "edited verdict breaks the hash chain"
 
 
+# ── Attacks added after hardening; run on the original architecture first (run_original.py) ──
+@attack(G4, "Concurrent submissions cannot jointly exceed a constraint (evaluate/commit race)")
+def _():
+    import race
+    over, unaudited, trials = race.concurrent_overspend(fresh, ceiling=initial_policy().ceiling_cents, trials=300)
+    return over == 0 and unaudited == 0, (f"{over}/{trials} trials above the ceiling; {unaudited}/{trials} trials with a "
+                                          "submission lacking a verdict or audit entry")
+
+
+@attack(G6, "Audit record cannot be altered through the submitted proposal object")
+def _():
+    pipe = fresh()
+    raw = {"id": "r1", "action_type": "spend", "target": "v", "parameters": {"amount_cents": 25000}}
+    pipe.submit(raw)
+    raw["parameters"]["amount_cents"] = 1
+    logged = pipe.audit.entries[-1]["proposal"]["parameters"]["amount_cents"]
+    return logged == 25000 and verify_chain(pipe.audit.entries), f"audit entry amount_cents={logged}; chain valid"
+
+
 def main():
     rows = []
     for group, name, fn in ATTACKS:

@@ -26,6 +26,23 @@ MUTATIONS = {
                                 "driver.split_events = split",
     "no attestation": "import driver; driver.check_agent = lambda a: []; driver.check_environment = lambda e: []",
     "first event page only": "import driver; driver.list_events = lambda sid: driver.api('GET', f'/sessions/{sid}/events').get('data', [])",
+    "no lock": "import governor.pipeline as p, contextlib\n"
+               "orig = p.Pipeline.__init__\n"
+               "def init(self, *a, **k): orig(self, *a, **k); self._lock = contextlib.nullcontext()\n"
+               "p.Pipeline.__init__ = init",
+    "no lock and no CAS": "import governor.pipeline as p, governor.state as s, contextlib\n"
+                          "orig = p.Pipeline.__init__\n"
+                          "def init(self, *a, **k): orig(self, *a, **k); self._lock = contextlib.nullcontext()\n"
+                          "p.Pipeline.__init__ = init\n"
+                          "def commit(self, a, pr, st): self._state = s.clone(st)\n"
+                          "p.Executor.commit = commit",
+    "audit stores caller object": "import governor.pipeline as p\n"
+                                  "orig = p.Pipeline.submit\n"
+                                  "def submit(self, raw):\n"
+                                  "  e = orig(self, raw)\n"
+                                  "  if isinstance(raw, dict) and raw.get('id') == e['proposal'].get('id'): e['proposal'] = raw\n"
+                                  "  return e\n"
+                                  "p.Pipeline.submit = submit",
     "state handle leaks": "import governor.pipeline as p; p.Executor.snapshot = lambda self: self._state",
     "extra proposal keys allowed": "import governor.actions as a; a.PROPOSAL_KEYS |= {'verdict','state','authorization'}",
     "policy mutable": "import governor.state as s\n"
@@ -45,7 +62,7 @@ runpy.run_path({script!r}, run_name='__main__')
 
 
 def main():
-    undetected = []
+    undetected, lines = [], []
     for name, patch in MUTATIONS.items():
         code = RUNNER.format(root=ROOT, here=HERE, patch=patch, script=os.path.join(HERE, "run_attacks.py"))
         env = dict(os.environ, PYTHONDONTWRITEBYTECODE="1")
@@ -55,6 +72,14 @@ def main():
         if not opened:
             undetected.append(name)
         print(f"- {name}: {status}")
+        lines.append(f"| {name} | {'✅ detected' if opened else '❌ NOT DETECTED'} | {len(opened)} | "
+                     f"{'; '.join(opened) if opened else '—'} |")
+    with open(os.path.join(HERE, "mutation-results.md"), "w") as fh:
+        fh.write("# Guard ablation (hardened code)\n\nEach row removes one guard and re-runs the attack suite.\n\n"
+                 "| Guard removed | Result | Attacks that report OPEN | Which |\n|---|---|---|---|\n" + "\n".join(lines) + "\n\n"
+                 "History: with race.py r1 the row `no lock` was NOT DETECTED (CAS prevented the overspend, but the losing "
+                 "thread raised StaleAuthorization and left no verdict or audit entry). The attack was strengthened to r2 "
+                 "(also requires a verdict and audit entry per submission); the architecture was not changed for this.\n")
     # results.json/md were overwritten by the mutated runs; restore the clean report
     subprocess.run([sys.executable, os.path.join(HERE, "run_attacks.py")], cwd=ROOT, capture_output=True)
     sys.exit(1 if undetected else 0)
