@@ -1,0 +1,4 @@
+.env
+IDS.env
+runs/
+transcript*.txt

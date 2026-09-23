@@ -1,0 +1,10 @@
+{
+  "name": "governed-worker-env",
+  "config": {
+    "type": "cloud",
+    "networking": {
+      "type": "limited",
+      "allowed_hosts": []
+    }
+  }
+}

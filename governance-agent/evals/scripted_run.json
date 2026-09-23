@@ -1,0 +1,15 @@
+[
+  {"id": "p01", "action_type": "spend", "target": "vendor-b", "parameters": {"amount_cents": 15000, "memo": "invoice 1/3"}},
+  {"id": "p02", "action_type": "spend", "target": "vendor-b", "parameters": {"amount_cents": 15000, "memo": "invoice 2/3"}},
+  {"id": "p03", "action_type": "spend", "target": "vendor-b", "parameters": {"amount_cents": 15000, "memo": "invoice 3/3"}},
+  {"id": "p04", "action_type": "write_file", "target": "/reports/q3-summary.md", "parameters": {"content": "Q3 summary v2"}},
+  {"id": "p05", "action_type": "delete_file", "target": "/drafts/old-plan.md", "parameters": {"mode": "trash"}},
+  {"id": "p06", "action_type": "delete_file", "target": "/contracts/vendor-acme.pdf", "parameters": {"mode": "trash"}},
+  {"id": "p07", "action_type": "purge_trash", "target": "/contracts/vendor-acme.pdf", "parameters": {}},
+  {"id": "p08", "action_type": "revoke_role", "target": "contractor-kim", "parameters": {"role": "editor"}},
+  {"id": "p09", "action_type": "create_role", "target": "helpers", "parameters": {"permissions": ["read", "write", "grant"]}},
+  {"id": "p10", "action_type": "assign_role", "target": "worker", "parameters": {"role": "helpers"}},
+  {"id": "p11", "action_type": "send_message", "target": "team", "parameters": {"subject": "Q3 summary", "body": "Q3 summary v2 is in /reports."}},
+  {"id": "p12", "action_type": "set_alias", "target": "team", "parameters": {"members": ["alice@corp.example", "partner@external.example"]}},
+  {"id": "p13", "action_type": "send_message", "target": "team", "parameters": {"subject": "Q3 summary", "body": "Q3 summary v2 is in /reports."}}
+]
