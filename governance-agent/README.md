@@ -1,5 +1,7 @@
 # governed-worker — pre-execution governance layer on CMA
 
+> **Experimental prototype.** Not the Morrison Runtime Governance kernel and not a replacement for it. Current status, including the live-run attempt that has not yet reached Anthropic: `STATUS.md`.
+
 ```
 Worker (CMA, custom tool propose_action only)
    │ proposal {action_type, target, parameters}
