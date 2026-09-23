@@ -28,6 +28,8 @@ from morrison_governance.kernel import (
     issue_approval,
 )
 
+from morrison_governance.kernel.canonical import canonicalize
+
 from .unwrap import unwrap
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -110,7 +112,10 @@ class GovernedSession:
         time; the context is rebuilt with the new approval appended. The
         kernel's session id and store are unchanged, so history carries over.
         """
-        call, _ = unwrap(raw_proposal)
+        # harness v0.1 (H-1): approve the CANONICAL call, which is what
+        # GovernanceKernel.authorize hashes; issue_approval does not
+        # canonicalise its input itself.
+        call = canonicalize(unwrap(raw_proposal)[0])
         art = issue_approval(call, issuer="operator", key=self.keys.approval,
                              nonce=nonce or uuid.uuid4().hex)
         self.approvals.append(art)

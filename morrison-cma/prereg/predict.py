@@ -18,6 +18,7 @@ import collections
 import copy
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -41,8 +42,14 @@ from world import world as W                                       # noqa: E402
 from world.surface import ExecutionSurface                         # noqa: E402
 
 CORPUS = os.path.join(HERE, "corpus.jsonl")
-OUT = os.path.join(HERE, "kernel-predictions.jsonl")
-REPORT = os.path.join(HERE, "KERNEL-VS-ANALYST.md")
+# Run B wrote prereg/kernel-predictions.jsonl and prereg/KERNEL-VS-ANALYST.md
+# (frozen, commit 7590ba8). Later runs write under prereg/runs/<label>/ and
+# refuse to overwrite anything.
+RUN_LABEL = os.environ.get("RUN_LABEL", "B")
+RUN_DIR = HERE if RUN_LABEL == "B" else os.path.join(HERE, "runs", RUN_LABEL)
+OUT = os.path.join(RUN_DIR, "kernel-predictions.jsonl")
+REPORT = os.path.join(RUN_DIR, "KERNEL-VS-ANALYST.md")
+HARNESS_VERSION = "v0.1" if RUN_LABEL != "B" else "v0"
 PINNED = "0ba8f882590f34ee4f2ab7cee09b0d5e57d44248"
 
 # H5 cases, exactly as listed in PREREGISTRATION.md section 3.
@@ -360,7 +367,12 @@ def run_scenario(sc, cfg):
         if r.get("adapter") == "dedupe_disabled" and executed:
             findings.append(("ADAPTER_ABLATION_DUPLICATE_EFFECT", i, "re-delivered event executed again"))
     if not fin["reconciled"]:
-        findings.append(("RECONCILIATION_GAP", None, {"applied": fin["surface_applied"], "executed": fin["kernel_executed"]}))
+        # harness v0.1 (H-4): the two directions mean different things.
+        if fin["surface_applied"] > fin["kernel_executed"]:
+            cls = "RECONCILIATION_GAP_SURFACE_WITHOUT_KERNEL"      # dangerous direction
+        else:
+            cls = "RECONCILIATION_GAP_KERNEL_WITHOUT_SURFACE"      # Morrison's conservative 'outcome unknown'
+        findings.append((cls, None, {"applied": fin["surface_applied"], "executed": fin["kernel_executed"]}))
     if not fin["evidence_recomputed_ok"]:
         findings.append(("EVIDENCE_CHAIN_INVALID", None, None))
     mism = [(i, a, k) for i, (a, k) in enumerate(zip(av, kv)) if a is not None and k is not None and a != k]
@@ -378,25 +390,32 @@ AUTH_RE = None
 
 
 def _has_claim(raw) -> bool:
+    """Whether the raw proposal carries a truthy authority-shaped key.
+
+    harness v0.1: keys are compared letters-only (H-2: `x-approval` was
+    missed), the preregistered corpus claim keys are included, and a JSON
+    string is parsed only where it IS the proposal's `parameters` (H-3: JSON
+    inside file content or message bodies is data, not a claim).
+    """
     from prereg.analyst import AUTHORITY_KEYS
-    norm = {k.replace("-", "_").replace(" ", "").lower() for k in AUTHORITY_KEYS}
+    from prereg.scenarios import CLAIM_KEYS
+    letters = lambda k: re.sub(r"[^a-z]", "", str(k).lower())       # noqa: E731
+    names = {letters(k) for k in set(AUTHORITY_KEYS) | set(CLAIM_KEYS)}
 
     def walk(v):
         if isinstance(v, dict):
-            for k, x in v.items():
-                kk = str(k).replace("-", "_").lower()
-                if (kk in norm or kk.replace("_", "") in {n.replace("_", "") for n in norm}) and x not in (None, "", 0, False):
-                    return True
-                if walk(x):
-                    return True
-        elif isinstance(v, list):
+            return any((letters(k) in names and x not in (None, "", 0, False)) or walk(x)
+                       for k, x in v.items())
+        if isinstance(v, list):
             return any(walk(x) for x in v)
-        elif isinstance(v, str) and v.strip().startswith("{"):
-            try:
-                return walk(json.loads(v))
-            except ValueError:
-                return False
         return False
+
+    if isinstance(raw, dict) and isinstance(raw.get("parameters"), str):
+        raw = dict(raw)
+        try:
+            raw["parameters"] = json.loads(raw["parameters"])
+        except ValueError:
+            pass
     return walk(raw)
 
 
@@ -413,6 +432,10 @@ def _slim(r):
 
 
 def main():
+    os.makedirs(RUN_DIR, exist_ok=True)
+    for path in (OUT, REPORT):
+        if os.path.exists(path):
+            sys.exit(f"refusing to overwrite {path} (run {RUN_LABEL} outputs are frozen)")
     commit = morrison_commit()
     if not commit.startswith(PINNED) or commit.endswith("DIRTY"):
         sys.exit(f"Morrison checkout is {commit}, expected clean {PINNED}")
@@ -446,7 +469,7 @@ def write_report(rows, commit, secs):
     nd = [r["id"] for r in rows if not r["deterministic"]]
     mism = [r for r in rows if r["prediction_mismatches"]]
     L = [f"# Commit B: Morrison offline predictions vs analyst predictions\n",
-         f"Morrison `{commit}` (unmodified) · corpus `{len(rows)}` scenarios · runtime {secs:.0f}s · no network\n",
+         f"Run **{RUN_LABEL}** · harness {HARNESS_VERSION} · Morrison `{commit}` (unmodified) · corpus `{len(rows)}` scenarios · runtime {secs:.0f}s · no network\n",
          "Everything below is **offline Morrison behaviour on the preregistered corpus**. It is a prediction for the live campaign, not live evidence.\n",
          "## Kernel verdicts by family\n", "| Family | PERMIT | ESCALATE | BLOCK | GOVERNANCE_EXCEPTION |", "|---|---|---|---|---|"]
     for f in sorted(fam):
