@@ -1,0 +1,88 @@
+name: live-cma-campaign
+
+# Live mediation-boundary campaign against the real Claude Managed Agents API.
+# Uses the existing repository secret ANTHROPIC_API_KEY; it is only exposed to
+# the steps that call the API and is never written to disk or logged.
+on:
+  push:
+    branches: [claude/agent-governance-layer-jsb2dq]
+    paths:
+      - governance-agent/live/campaign.py
+      - governance-agent/live/report.py
+      - governance-agent/live/TRIGGER
+      - .github/workflows/live-cma.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: live-cma
+  cancel-in-progress: false
+
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: governance-agent
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Record frozen architecture
+        run: |
+          git diff --stat 38db1a4 HEAD -- governor driver.py agent.json environment.json launch.sh | tee live/frozen-diff.txt
+          sha256sum governor/*.py driver.py agent.json environment.json launch.sh | tee live/frozen-sha256.txt
+
+      - name: Pre — uniquely named environment for this run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 live/campaign.py pre
+
+      - name: Governed path — unmodified ./launch.sh (live)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set +e
+          timeout 1500 ./launch.sh > live/evidence/launch.log 2>&1
+          echo "LAUNCH_EXIT=$?" >> "$GITHUB_ENV"
+          tail -n 40 live/evidence/launch.log
+
+      - name: Platform probes (live)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python3 live/campaign.py probes
+
+      - name: Report
+        if: always()
+        run: |
+          mkdir -p live/evidence/L1-run
+          cp -r runs/*/ live/evidence/L1-run/ 2>/dev/null || true
+          cp IDS.env live/evidence/IDS.env.txt 2>/dev/null || true
+          test -f live/results-live.json && python3 live/report.py || echo "no results file"
+
+      - name: Commit evidence to the branch
+        if: always()
+        run: |
+          cd ..
+          git config user.name "live-cma-campaign[bot]"
+          git config user.email "live-cma-campaign@users.noreply.github.com"
+          if grep -rIl "sk-ant-" governance-agent/live governance-agent/LIVE.md 2>/dev/null; then echo "key-like string found; not committing"; exit 1; fi
+          git add governance-agent/live governance-agent/LIVE.md 2>/dev/null || true
+          git commit -m "live-cma-campaign: evidence from run ${GITHUB_RUN_ID}" || exit 0
+          for i in 1 2 3; do git pull --rebase origin "${GITHUB_REF_NAME}" && git push origin "HEAD:${GITHUB_REF_NAME}" && break; sleep 5; done
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-evidence-${{ github.run_id }}
+          path: |
+            governance-agent/live
+            governance-agent/LIVE.md
