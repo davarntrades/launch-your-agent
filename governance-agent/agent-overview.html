@@ -15,7 +15,7 @@
       <div>
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
           <h1>governed-worker</h1>
-          <span class="statepill planned"><span class="led planned"></span>STAGED · EVALS 12/12 · NOT LAUNCHED</span>
+          <span class="statepill planned"><span class="led planned"></span>STAGED · EVALS 12/12 · ATTACKS 31/31 · NOT LAUNCHED</span>
         </div>
         <div class="byline">Claude Managed Agent + client-side governance layer · created 2026-09-23</div>
       </div>
@@ -63,7 +63,7 @@
       <div class="node key grow">
         <div class="node-head"><span class="node-icon">⚖️</span><h2>evaluate(state, proposal)</h2><span class="node-meta">governor/governor.py</span></div>
         <div class="node-body">
-          <div class="field"><div class="field-k">1 · simulate</div><p class="small">deep copy of state → apply transition → undefined transition ⇒ <span class="tag warn">WITHHOLD</span></p></div>
+          <div class="field"><div class="field-k">1 · normalize + simulate</div><p class="small">exact keys/types (detached JSON copy) → deep copy of state → apply → writes outside the action's footprint ⇒ <span class="tag warn">WITHHOLD</span> · policy is frozen, outside state</p></div>
           <div class="field"><div class="field-k">2 · constraint predicates on the simulated state</div>
             <table>
               <thead><tr><th>Constraint</th><th>Test on resulting state</th><th>Class</th></tr></thead>
@@ -76,7 +76,7 @@
             </table>
           </div>
           <div class="field"><div class="field-k">3 · verdict</div>
-            <p class="small">any WITHHOLD-class → <b>WITHHOLD</b>; else any ESCALATE-class → <b>ESCALATE</b>; else <b>AUTHORIZE</b>. Returns violated constraint(s) + reason. Input state never modified (asserted).</p></div>
+            <p class="small">any WITHHOLD-class → <b>WITHHOLD</b>; else any ESCALATE-class → <b>ESCALATE</b>; else <b>AUTHORIZE</b> + binding <code>(state, proposal, result)</code> digests. Input state never modified (asserted).</p></div>
         </div>
       </div>
     </div>
@@ -87,7 +87,7 @@
       <p class="col-title">Executor · audit · grading</p>
       <div class="node key">
         <div class="node-head"><span class="node-icon">⚙️</span><h2>Executor</h2><span class="node-meta">AUTHORIZE only</span></div>
-        <div class="node-body"><p class="small">Only writer of the real mock state (budget, file store, roles, outbox). ESCALATE → pending queue; <code>approve()</code> re-evaluates against the current state before applying.</p></div>
+        <div class="node-body"><p class="small">Sole holder of the real mock state. Compare-and-swap commit of the evaluated result; stale binding ⇒ refused. Ids single-use. ESCALATE → pending queue; <code>approve()</code> re-evaluates on current state.</p></div>
       </div>
       <div class="node">
         <div class="node-head"><span class="node-icon">📜</span><h2>Audit log</h2><span class="node-meta">JSONL · sha256 chain</span></div>
@@ -105,6 +105,26 @@
           </ol>
         </div>
       </div>
+    </div>
+  </div>
+
+  <div class="lane full">
+    <div class="lane-head"><span class="node-icon">🛡️</span><h2>Mediation boundary · attack suite</h2><span class="lane-meta">31/31 blocked · BOUNDARY.md</span></div>
+    <div class="lane-body">
+      <div class="overflow">
+      <table>
+        <thead><tr><th>Path</th><th>Attacks</th><th>Enforced by</th></tr></thead>
+        <tbody>
+          <tr><td>Q1 bypass propose_action</td><td><span class="tag good">4/4</span></td><td>only tool is custom <code>propose_action</code>; text never parsed; other tool names halt</td></tr>
+          <tr><td>Q2 MCP / tool execution</td><td><span class="tag good">6/6</span></td><td>config attestation before session + per poll; any <code>agent.tool_use</code>/<code>agent.mcp_tool_use</code> halts; all event pages scanned</td></tr>
+          <tr><td>Q3 mutate via sandbox</td><td><span class="tag good">3/3</span></td><td>state never mounted; no egress; Executor holds the only reference</td></tr>
+          <tr><td>Q4 stale authorization</td><td><span class="tag good">6/6</span></td><td>digest-bound CAS commit; single-use ids; approval re-evaluates</td></tr>
+          <tr><td>Q5 manipulate evaluated state</td><td><span class="tag good">7/7</span></td><td>frozen policy; strict detached proposals; recipients resolved on simulated state</td></tr>
+          <tr><td>Q6 unmodelled surface</td><td><span class="tag good">5/5</span></td><td>frame condition; unknown actions withheld; flood bound; 5,000-step fuzz invariant</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="small sub" style="margin:.5em 0 0;">Residuals (detection or trust, not construction): CMA honoring the tool config, API-key holders, in-process code, human approvers, semantics inside a declared footprint, full-chain audit rewrite, real-system TOCTOU. See BOUNDARY.md.</p>
     </div>
   </div>
 

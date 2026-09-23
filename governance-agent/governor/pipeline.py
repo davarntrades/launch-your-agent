@@ -1,19 +1,32 @@
 """Executor, audit log and the pipeline that connects them to the Governor.
 
-    Worker proposal -> Governor.evaluate -> Executor (AUTHORIZE only) -> audit
+    Worker proposal -> Governor.evaluate -> Executor.commit (AUTHORIZE only) -> audit
 
-ESCALATE proposals are held in a pending queue. `approve()` re-evaluates a
-held proposal against the *current* state; if the only remaining violations
-are ESCALATE-class, the recorded approval releases it to the Executor.
+Boundary properties enforced here:
+  * The Executor holds the only reference to the real state. `Pipeline.state`
+    returns a copy; nothing outside the Executor can obtain a mutable handle.
+  * Commit is compare-and-swap on the authorization binding: the live state
+    must still match `state_digest`, and the committed state is the simulated
+    state whose digest was checked. A stale or altered authorization raises
+    StaleAuthorization and nothing is written.
+  * Proposal ids are single-use; a replayed id is WITHHOLD.
+  * Evaluate + commit run under one lock, so no other submission interleaves.
+  * ESCALATE proposals wait in a queue; approve() re-evaluates against the
+    current state and commits under a fresh authorization. approve() is a
+    Python call for the operator; no proposal type reaches it.
 """
 
 import hashlib
 import json
+import threading
 
-from .actions import apply
 from .constraints import CONSTRAINTS, ESCALATE, WITHHOLD
 from .governor import AUTHORIZE, evaluate
 from .state import clone, digest
+
+
+class StaleAuthorization(Exception):
+    pass
 
 
 class AuditLog:
@@ -52,75 +65,115 @@ def verify_chain(entries):
 
 
 class Executor:
-    """The only component that writes to the real state."""
+    """The only holder of, and only writer to, the real state."""
 
     def __init__(self, state):
-        self.state = state
+        self._state = clone(state)
 
-    def execute(self, proposal):
-        apply(self.state, proposal)
+    def snapshot(self):
+        return clone(self._state)
+
+    def digest(self):
+        return digest(self._state)
+
+    def commit(self, authorization, proposal, simulated_state):
+        if authorization is None:
+            raise StaleAuthorization("no authorization")
+        if digest(self._state) != authorization["state_digest"]:
+            raise StaleAuthorization("live state differs from the evaluated state")
+        if digest(proposal) != authorization["proposal_digest"]:
+            raise StaleAuthorization("proposal differs from the evaluated proposal")
+        if digest(simulated_state) != authorization["result_digest"]:
+            raise StaleAuthorization("result differs from the evaluated result")
+        self._state = clone(simulated_state)
 
 
 class Pipeline:
-    def __init__(self, state, audit_path=None, constraints=CONSTRAINTS):
-        self.executor = Executor(state)
+    def __init__(self, state, policy, audit_path=None, constraints=CONSTRAINTS, max_proposals=500):
+        self.policy = policy
+        self._executor = Executor(state)
         self.audit = AuditLog(audit_path)
         self.constraints = constraints
-        self.pending = {}  # proposal id -> proposal (ESCALATE queue)
+        self.max_proposals = max_proposals
+        self._pending = {}  # proposal id -> normalised proposal (ESCALATE queue)
+        self._seen_ids = set()
         self._auto_id = 0
+        self._lock = threading.Lock()
 
     @property
     def state(self):
-        return self.executor.state
+        """A copy of the real state. Mutating it has no effect."""
+        return self._executor.snapshot()
 
-    def _id(self, proposal):
-        if not proposal.get("id"):
-            self._auto_id += 1
-            proposal = dict(proposal, id=f"p{self._auto_id:03d}")
-        return proposal
+    @property
+    def pending(self):
+        return sorted(self._pending)
 
-    def submit(self, proposal):
-        proposal = self._id(proposal)
-        before = clone(self.state)
-        result = evaluate(before, proposal, self.constraints)
-        if result["verdict"] == AUTHORIZE:
-            self.executor.execute(proposal)
-        elif result["verdict"] == ESCALATE:
-            self.pending[proposal["id"]] = proposal
-        return self._log("proposal", proposal, before, result)
+    def submit(self, raw_proposal):
+        with self._lock:
+            before = self._executor.snapshot()
+            pid = raw_proposal.get("id") if isinstance(raw_proposal, dict) else None
+            if not pid:
+                self._auto_id += 1
+                pid = f"p{self._auto_id:03d}"
+                if isinstance(raw_proposal, dict):
+                    raw_proposal = dict(raw_proposal, id=pid)
+            if not isinstance(pid, str) or pid in self._seen_ids:
+                result = {"verdict": WITHHOLD, "violated": ["single_use_id"],
+                          "reasons": [f"proposal id {pid!r} already used or invalid"], "proposal": None}
+                return self._log("proposal", raw_proposal, before, result)
+            self._seen_ids.add(pid)
+            if len(self._seen_ids) > self.max_proposals:
+                result = {"verdict": WITHHOLD, "violated": ["proposal_budget"],
+                          "reasons": [f"more than {self.max_proposals} proposals in this pipeline"], "proposal": None}
+                return self._log("proposal", raw_proposal, before, result)
+
+            result = evaluate(self.policy, before, raw_proposal, self.constraints)
+            if result["verdict"] == AUTHORIZE:
+                self._executor.commit(result["authorization"], result["proposal"], result["simulated_state"])
+            elif result["verdict"] == ESCALATE:
+                self._pending[pid] = result["proposal"]
+            return self._log("proposal", result["proposal"] or raw_proposal, before, result)
 
     def approve(self, proposal_id, approver):
         """Release a held ESCALATE proposal with a recorded approval."""
-        proposal = self.pending.pop(proposal_id)
-        before = clone(self.state)
-        result = evaluate(before, proposal, self.constraints)
-        hard = [n for n, _, c in self.constraints if c == WITHHOLD and n in result["violated"]]
-        if result["verdict"] == WITHHOLD or hard:
-            result = dict(result, verdict=WITHHOLD)
-        else:
-            result = dict(result, verdict=AUTHORIZE,
-                          reasons=result["reasons"] + [f"escalation approved by {approver}"])
-            self.executor.execute(proposal)
-        return self._log("escalation_approval", proposal, before, result, approver=approver)
+        with self._lock:
+            before = self._executor.snapshot()
+            proposal = self._pending.pop(proposal_id, None)
+            if proposal is None:
+                result = {"verdict": WITHHOLD, "violated": ["no_pending_escalation"],
+                          "reasons": [f"no pending escalation {proposal_id!r}"], "proposal": None}
+                return self._log("escalation_approval", {"id": proposal_id}, before, result, approver=approver)
+            result = evaluate(self.policy, before, proposal, self.constraints)
+            hard = [n for n, _, c in self.constraints if c == WITHHOLD and n in result["violated"]]
+            if result["verdict"] == WITHHOLD or hard:
+                result = dict(result, verdict=WITHHOLD)
+            else:
+                result = dict(result, verdict=AUTHORIZE,
+                              reasons=result["reasons"] + [f"escalation approved by {approver}"])
+                self._executor.commit(result["authorization"], result["proposal"], result["simulated_state"])
+            return self._log("escalation_approval", proposal, before, result, approver=approver)
 
     def reject(self, proposal_id, approver):
-        proposal = self.pending.pop(proposal_id)
-        before = clone(self.state)
-        result = {"verdict": WITHHOLD, "violated": [], "reasons": [f"escalation rejected by {approver}"],
-                  "simulated_state": None}
-        return self._log("escalation_rejection", proposal, before, result, approver=approver)
+        with self._lock:
+            before = self._executor.snapshot()
+            proposal = self._pending.pop(proposal_id, {"id": proposal_id})
+            result = {"verdict": WITHHOLD, "violated": [], "reasons": [f"escalation rejected by {approver}"]}
+            return self._log("escalation_rejection", proposal, before, result, approver=approver)
 
     def _log(self, kind, proposal, before, result, **extra):
+        after = self._executor.snapshot()
         entry = {
             "kind": kind,
-            "proposal": proposal,
+            "proposal": json.loads(json.dumps(proposal, default=repr)),
             "state_before": before,
             "state_before_digest": digest(before),
             "verdict": result["verdict"],
             "violated": result["violated"],
             "reasons": result["reasons"],
-            "state_after": clone(self.state),
-            "state_after_digest": digest(self.state),
+            "state_after": after,
+            "state_after_digest": digest(after),
+            "policy_digest": digest(self.policy.as_dict()),
             **extra,
         }
         return self.audit.record(entry)

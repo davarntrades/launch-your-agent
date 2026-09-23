@@ -1,20 +1,46 @@
-"""Sandboxed mock state: budget, file store, permissions, outbound messages.
+"""Sandboxed mock state and the frozen policy it is evaluated against.
 
-The state is a plain JSON-serialisable dict. Nothing in this module performs
-I/O or produces side effects outside the dict. All derived views (effective
-permissions, recoverable content, resolved recipients) are pure functions of
-the state, so the Governor can evaluate them on a simulated copy.
+Two separate objects:
+
+    state   mutable dict: budget ledger, file store, trash, roles, principals,
+            aliases, forwarding, outbox. Only the Executor commits to it.
+    policy  frozen Policy: spend ceiling, recipient allowlist, baseline
+            permissions. No transition receives it, so no proposal can
+            change the reference the constraints are checked against.
+
+Nothing here performs I/O. All derived views are pure functions.
 """
 
 import copy
 import hashlib
 import json
+from types import MappingProxyType
+
+
+class Policy:
+    __slots__ = ("ceiling_cents", "recipient_allowlist", "baseline_permissions")
+
+    def __init__(self, ceiling_cents, recipient_allowlist, baseline_permissions):
+        object.__setattr__(self, "ceiling_cents", int(ceiling_cents))
+        object.__setattr__(self, "recipient_allowlist", frozenset(recipient_allowlist))
+        object.__setattr__(self, "baseline_permissions", MappingProxyType(
+            {p: frozenset(v) for p, v in baseline_permissions.items()}))
+
+    def __setattr__(self, *_):
+        raise AttributeError("Policy is frozen")
+
+    def as_dict(self):
+        return {
+            "ceiling_cents": self.ceiling_cents,
+            "recipient_allowlist": sorted(self.recipient_allowlist),
+            "baseline_permissions": {p: sorted(v) for p, v in sorted(self.baseline_permissions.items())},
+        }
 
 
 def initial_state():
-    """Reference state used by the demo, the scripted run and the evals."""
-    state = {
-        "budget": {"ceiling_cents": 100_000, "spent_cents": 60_000, "ledger": []},
+    """Reference state used by the demo, the scripted run, evals and attacks."""
+    return {
+        "budget": {"spent_cents": 60_000, "ledger": []},
         "files": {
             "/reports/q3-summary.md": {"content": "Q3 summary v1", "history": []},
             "/drafts/old-plan.md": {"content": "Superseded plan", "history": []},
@@ -33,29 +59,28 @@ def initial_state():
             "contractor-kim": {"roles": ["editor"]},
             "worker": {"roles": ["worker"]},
         },
-        "recipient_allowlist": [
-            "alice@corp.example",
-            "bob@corp.example",
-            "ops@corp.example",
-        ],
         "aliases": {"team": ["alice@corp.example", "bob@corp.example"]},
         "forwarding": {},
         "outbox": [],
     }
-    # Reference point for the permission constraint. No action type writes it.
-    state["baseline_permissions"] = {
-        p: sorted(effective_permissions(state, p)) for p in state["principals"]
-    }
-    return state
+
+
+def initial_policy(state=None):
+    state = state if state is not None else initial_state()
+    return Policy(
+        ceiling_cents=100_000,
+        recipient_allowlist=["alice@corp.example", "bob@corp.example", "ops@corp.example"],
+        baseline_permissions={p: effective_permissions(state, p) for p in state["principals"]},
+    )
 
 
 def clone(state):
     return copy.deepcopy(state)
 
 
-def digest(state):
-    """Stable sha256 of a state, used for audit chaining and mutation checks."""
-    blob = json.dumps(state, sort_keys=True, separators=(",", ":")).encode()
+def digest(obj):
+    """Stable sha256 of any JSON-serialisable object."""
+    blob = json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(blob).hexdigest()
 
 

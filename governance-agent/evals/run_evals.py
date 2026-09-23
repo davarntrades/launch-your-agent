@@ -17,12 +17,12 @@ sys.path.insert(0, ROOT)
 sys.path.insert(0, HERE)
 
 import baseline  # noqa: E402
-from governor import AUTHORIZE, Pipeline, initial_state, verify_chain  # noqa: E402
+from governor import AUTHORIZE, Pipeline, initial_policy, initial_state, verify_chain  # noqa: E402
 
 
 def run_case(case, audit_dir=None):
     path = os.path.join(audit_dir, f"{case['id']}.jsonl") if audit_dir else None
-    pipe = Pipeline(initial_state(), audit_path=path)
+    pipe = Pipeline(initial_state(), initial_policy(), audit_path=path)
     setup_verdicts = []
     for i, step in enumerate(case["setup"]):
         e = pipe.submit(dict(step, id=f"{case['id']}-s{i + 1}"))

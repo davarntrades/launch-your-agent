@@ -40,7 +40,8 @@
           "action_type",
           "target",
           "parameters"
-        ]
+        ],
+        "additionalProperties": false
       }
     }
   ],

@@ -1,13 +1,18 @@
-"""Proposal schema and transition functions.
+"""Proposal schema, normalisation, transition functions and write footprints.
 
-A proposal is a dict:
+A proposal is a JSON object:
     {"id": str, "action_type": str, "target": str, "parameters": {...}}
 
-Each transition takes a state and a proposal and mutates *that* state in
-place. Callers pass a clone when simulating. A transition that is undefined
-for the given state (missing file, unknown role, bad parameter) raises
-TransitionError; the Governor maps that to WITHHOLD.
+`normalize()` turns any input into a fresh, JSON-only proposal with exactly
+the declared keys and types, or raises TransitionError. The returned object
+shares no references with the caller's input.
+
+Each transition mutates the state it is given (the Governor passes a clone).
+FOOTPRINT lists the top-level state keys a transition may write; the
+Governor rejects a simulated result that changed anything else.
 """
+
+import json
 
 from .state import resolve_recipients
 
@@ -16,16 +21,85 @@ class TransitionError(Exception):
     pass
 
 
-def _require(params, key, typ):
-    if key not in params:
-        raise TransitionError(f"missing parameter '{key}'")
-    if not isinstance(params[key], typ) or isinstance(params[key], bool) and typ is int:
-        raise TransitionError(f"parameter '{key}' must be {typ.__name__}")
-    return params[key]
+# action_type -> {param: (type, required)}
+PARAMS = {
+    "spend": {"amount_cents": (int, True), "memo": (str, False)},
+    "write_file": {"content": (str, True)},
+    "delete_file": {"mode": (str, False)},
+    "restore_file": {},
+    "purge_trash": {},
+    "create_role": {"permissions": (list, True)},
+    "assign_role": {"role": (str, True)},
+    "revoke_role": {"role": (str, True)},
+    "send_message": {"subject": (str, True), "body": (str, True)},
+    "set_alias": {"members": (list, True)},
+    "set_forwarding": {"forward_to": (str, True)},
+}
+
+FOOTPRINT = {
+    "spend": {"budget"},
+    "write_file": {"files"},
+    "delete_file": {"files", "trash"},
+    "restore_file": {"files", "trash"},
+    "purge_trash": {"trash"},
+    "create_role": {"roles"},
+    "assign_role": {"principals"},
+    "revoke_role": {"principals"},
+    "send_message": {"outbox"},
+    "set_alias": {"aliases"},
+    "set_forwarding": {"forwarding"},
+}
+
+PROPOSAL_KEYS = {"id", "action_type", "target", "parameters"}
+MAX_STR = 10_000
+
+
+def _check_str(value, name):
+    if not isinstance(value, str) or not value or len(value) > MAX_STR:
+        raise TransitionError(f"{name} must be a non-empty string of at most {MAX_STR} chars")
+
+
+def normalize(raw):
+    """Return a detached, schema-exact copy of a proposal or raise TransitionError."""
+    try:
+        proposal = json.loads(json.dumps(raw))  # JSON-only, no shared references
+    except (TypeError, ValueError) as exc:
+        raise TransitionError(f"proposal is not JSON-serialisable: {exc}")
+    if not isinstance(proposal, dict):
+        raise TransitionError("proposal must be an object")
+    extra = set(proposal) - PROPOSAL_KEYS
+    if extra:
+        raise TransitionError(f"unexpected proposal keys {sorted(extra)}")
+    action = proposal.get("action_type")
+    if action not in PARAMS:
+        raise TransitionError(f"unknown action_type {action!r}")
+    _check_str(proposal.get("target"), "target")
+    params = proposal.get("parameters", {})
+    if not isinstance(params, dict):
+        raise TransitionError("parameters must be an object")
+    spec = PARAMS[action]
+    extra = set(params) - set(spec)
+    if extra:
+        raise TransitionError(f"unexpected parameters {sorted(extra)} for {action}")
+    for name, (typ, required) in spec.items():
+        if name not in params:
+            if required:
+                raise TransitionError(f"missing parameter '{name}'")
+            continue
+        value = params[name]
+        if typ is int and (isinstance(value, bool) or not isinstance(value, int)):
+            raise TransitionError(f"parameter '{name}' must be an integer")
+        if typ is str:
+            _check_str(value, f"parameter '{name}'")
+        if typ is list:
+            if not isinstance(value, list) or not value or not all(isinstance(v, str) and v for v in value):
+                raise TransitionError(f"parameter '{name}' must be a non-empty list of strings")
+    proposal["parameters"] = params
+    return proposal
 
 
 def _spend(s, target, p):
-    amount = _require(p, "amount_cents", int)
+    amount = p["amount_cents"]
     if amount <= 0:
         raise TransitionError("amount_cents must be > 0")
     s["budget"]["spent_cents"] += amount
@@ -33,24 +107,25 @@ def _spend(s, target, p):
 
 
 def _write_file(s, target, p):
-    content = _require(p, "content", str)
     rec = s["files"].get(target)
     if rec is None:
-        s["files"][target] = {"content": content, "history": []}
+        s["files"][target] = {"content": p["content"], "history": []}
     else:
         rec["history"].append(rec["content"])
-        rec["content"] = content
+        rec["content"] = p["content"]
 
 
 def _delete_file(s, target, p):
     mode = p.get("mode", "trash")
+    if mode not in ("trash", "permanent"):
+        raise TransitionError("mode must be 'trash' or 'permanent'")
     if target not in s["files"]:
         raise TransitionError(f"no file at {target}")
+    if mode == "trash" and target in s["trash"]:
+        raise TransitionError(f"trash already holds {target}")
     rec = s["files"].pop(target)
     if mode == "trash":
         s["trash"][target] = rec
-    elif mode != "permanent":
-        raise TransitionError("mode must be 'trash' or 'permanent'")
 
 
 def _restore_file(s, target, p):
@@ -63,6 +138,8 @@ def _restore_file(s, target, p):
 
 def _purge_trash(s, target, p):
     if target == "*":
+        if not s["trash"]:
+            raise TransitionError("trash is empty")
         s["trash"].clear()
     elif target in s["trash"]:
         del s["trash"][target]
@@ -71,47 +148,41 @@ def _purge_trash(s, target, p):
 
 
 def _create_role(s, target, p):
-    perms = _require(p, "permissions", list)
     if target in s["roles"]:
         raise TransitionError(f"role {target} already exists")
-    s["roles"][target] = sorted({str(x) for x in perms})
+    s["roles"][target] = sorted(set(p["permissions"]))
 
 
 def _assign_role(s, target, p):
-    role = _require(p, "role", str)
+    role = p["role"]
     if role not in s["roles"]:
         raise TransitionError(f"no role {role}")
     roles = s["principals"].setdefault(target, {"roles": []})["roles"]
-    if role not in roles:
-        roles.append(role)
+    if role in roles:
+        raise TransitionError(f"{target} already holds role {role}")
+    roles.append(role)
 
 
 def _revoke_role(s, target, p):
-    role = _require(p, "role", str)
     roles = s["principals"].get(target, {}).get("roles", [])
-    if role not in roles:
-        raise TransitionError(f"{target} does not hold role {role}")
-    roles.remove(role)
+    if p["role"] not in roles:
+        raise TransitionError(f"{target} does not hold role {p['role']}")
+    roles.remove(p["role"])
 
 
 def _send_message(s, target, p):
-    subject = _require(p, "subject", str)
-    body = _require(p, "body", str)
-    s["outbox"].append({
-        "to": target,
-        "delivered_to": sorted(resolve_recipients(s, target)),
-        "subject": subject,
-        "body": body,
-    })
+    delivered = sorted(resolve_recipients(s, target))
+    if not delivered:
+        raise TransitionError(f"{target!r} resolves to no recipients")
+    s["outbox"].append({"to": target, "delivered_to": delivered, "subject": p["subject"], "body": p["body"]})
 
 
 def _set_alias(s, target, p):
-    members = _require(p, "members", list)
-    s["aliases"][target] = [str(m) for m in members]
+    s["aliases"][target] = list(p["members"])
 
 
 def _set_forwarding(s, target, p):
-    s["forwarding"][target] = _require(p, "forward_to", str)
+    s["forwarding"][target] = p["forward_to"]
 
 
 TRANSITIONS = {
@@ -127,8 +198,9 @@ TRANSITIONS = {
     "set_alias": _set_alias,
     "set_forwarding": _set_forwarding,
 }
+assert set(TRANSITIONS) == set(PARAMS) == set(FOOTPRINT)
 
-# JSON Schema for the Worker's propose_action tool (kept in sync with TRANSITIONS).
+# JSON Schema for the Worker's propose_action tool (kept in sync with PARAMS).
 PROPOSAL_INPUT_SCHEMA = {
     "type": "object",
     "properties": {
@@ -148,20 +220,10 @@ PROPOSAL_INPUT_SCHEMA = {
         },
     },
     "required": ["action_type", "target", "parameters"],
+    "additionalProperties": False,
 }
 
 
 def apply(state, proposal):
-    """Apply a proposal to `state` in place. Raises TransitionError."""
-    if not isinstance(proposal, dict):
-        raise TransitionError("proposal must be an object")
-    fn = TRANSITIONS.get(proposal.get("action_type"))
-    if fn is None:
-        raise TransitionError(f"unknown action_type {proposal.get('action_type')!r}")
-    target = proposal.get("target")
-    params = proposal.get("parameters", {})
-    if not isinstance(target, str) or not target:
-        raise TransitionError("target must be a non-empty string")
-    if not isinstance(params, dict):
-        raise TransitionError("parameters must be an object")
-    fn(state, target, params)
+    """Apply a normalised proposal to `state` in place. Raises TransitionError."""
+    TRANSITIONS[proposal["action_type"]](state, proposal["target"], proposal["parameters"])

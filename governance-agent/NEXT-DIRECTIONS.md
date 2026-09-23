@@ -7,7 +7,11 @@ Reason classes: **(i)** not possible on CMA · **(ii)** needs a credential not o
 - **Approval command for the ESCALATE queue** — (iii). How: persist `Pipeline.pending` to `runs/<id>/pending.json`; add `driver.py approve <proposal_id> --by <name>` that calls `Pipeline.approve()` (already implemented and tested: re-evaluates against the current state before applying).
 - **Grade the live run** — read `outcome_evaluations[]` and compare the Worker's report against `audit.jsonl` (the log is the ground truth; the report is graded against it).
 
+- **Confirm event pagination fields on the first live run** — (iii). `list_events` assumes `has_more`/`last_id`/`after_id` and halts if no cursor; check against the live docs.
+
 ## v2 — policy hardening
+- **Anchor the audit head hash externally** — (iii). Write each run's final `entry_hash` to a separate store so a full-chain rewrite is detectable (BOUNDARY.md residual 6).
+- **Dedicated workspace + key for the Worker** — (iii). Limits who can change the agent/session config (BOUNDARY.md residual 2).
 - **Constraints as versioned data** — (iii). Load ceilings, allowlist and baseline from `policy.json` with a hash recorded in every audit entry.
 - **Velocity limits** — (iii). Add `spend_window` predicate (e.g. max N cents per rolling window) using the ledger in state.
 - **Explicit pre-state admissibility check** — (iii). Refuse to start a run if `initial_state()` itself violates a predicate.

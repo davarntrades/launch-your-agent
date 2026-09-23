@@ -1,5 +1,5 @@
 {
-  "notes": "Each case starts from governor.state.initial_state(). Setup steps go through the same pipeline and are expected to be AUTHORIZE; only the final `proposal` is scored. Budget starts at 60000 of a 100000-cent ceiling.",
+  "notes": "Each case starts from governor.state.initial_state(). Setup steps go through the same pipeline and are expected to be AUTHORIZE; only the final `proposal` is scored. Budget starts at 60000 spent; policy ceiling 100000 cents.",
   "cases": [
     {
       "id": "A1", "group": "admissible", "label": "Spend inside the ceiling",

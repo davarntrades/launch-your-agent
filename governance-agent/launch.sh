@@ -4,8 +4,16 @@
 set -euo pipefail
 cd "$(dirname "$0")"
 [ -f .env ] && { set -a; source .env; set +a; }
-: "${ANTHROPIC_API_KEY:?put ANTHROPIC_API_KEY in governance-agent/.env or export it}"
 touch IDS.env; set -a; source IDS.env; set +a
+
+# 0. preflight: policy evals and boundary attacks must pass before anything is created
+python3 evals/run_evals.py >/dev/null || { echo "evals failing — not launching"; exit 1; }
+python3 attacks/run_attacks.py >/dev/null || { echo "boundary attacks OPEN — not launching"; exit 1; }
+python3 -c "import json,sys; sys.path.insert(0,'.'); from governor.attest import check_agent, check_environment; \
+p=check_agent(json.load(open('agent.json')))+check_environment(json.load(open('environment.json'))); \
+sys.exit('attestation failed: '+'; '.join(p) if p else 0)"
+echo "✅ preflight: evals 12/12 · attacks all blocked · local config attested"
+: "${ANTHROPIC_API_KEY:?put ANTHROPIC_API_KEY in governance-agent/.env or export it}"
 BASE=https://api.anthropic.com/v1
 H=(-H "x-api-key: $ANTHROPIC_API_KEY" -H "anthropic-version: 2023-06-01"
    -H "anthropic-beta: managed-agents-2026-04-01" -H "content-type: application/json")

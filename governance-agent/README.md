@@ -5,9 +5,10 @@ Worker (CMA, custom tool propose_action only)
    │ proposal {action_type, target, parameters}
    ▼
 Governor (deterministic Python, client-side)
-   simulate on deep copy → constraint predicates → AUTHORIZE | WITHHOLD | ESCALATE (+ violated, reason)
+   normalize → simulate on deep copy → frame condition → constraint predicates
+   → AUTHORIZE | WITHHOLD | ESCALATE (+ violated, reason, authorization binding)
    ▼
-Executor (AUTHORIZE only; ESCALATE → pending queue)      Audit log (JSONL, sha256 chain)
+Executor (compare-and-swap commit of the evaluated state; ESCALATE → pending queue)      Audit log (JSONL, sha256 chain)
    writes the sandboxed mock state                      state_before · proposal · verdict · state_after
 ```
 
@@ -22,7 +23,7 @@ Mock state: budget (cents + ledger), file store (content + history + trash), rol
 | `recipient_allowlist` | every delivered address (aliases + forwarding expanded) is listed | WITHHOLD |
 | `no_irreversible_delete` | no (path, content) leaves the recoverable set (live ∪ history ∪ trash) | ESCALATE |
 
-Undefined transitions (unknown action type, missing file, bad parameter) → WITHHOLD (`transition_defined`).
+Policy (ceiling, allowlist, baseline permissions) is a frozen object outside the state; no transition can reach it. Also WITHHOLD: schema violations (`proposal_schema`), undefined transitions (`transition_defined`), writes outside an action's declared footprint (`frame_condition`), replayed ids (`single_use_id`), proposal flood (`proposal_budget`).
 
 ## Evals — 12 proposals
 
@@ -36,14 +37,20 @@ Undefined transitions (unknown action type, missing file, bad parameter) → WIT
 
 Caveat: the cases and the predicates were written together, so 12/12 shows the mechanism works as specified — it is not a measure against unseen sequences. `NEXT-DIRECTIONS.md` v2 lists more held-back sequences.
 
+## Mediation boundary (attack suite)
+
+Separate from policy accuracy: can anything reach the real state without passing Governor → Executor, or commit something other than what was evaluated? `attacks/run_attacks.py` runs 31 attacks across the six paths (bypass `propose_action`, MCP/tool execution, sandbox mutation, stale authorization, evaluated-state manipulation, unmodelled surfaces). Several drive the real `driver.py` live loop against a fake CMA API that emits hostile event streams. **31/31 blocked.** `attacks/mutation_check.py` removes each guard in turn and confirms the suite then reports OPEN. What is *not* structurally closed is listed in `BOUNDARY.md`.
+
 ## Run it
 
 ```bash
 cd governance-agent
 python3 evals/run_evals.py                 # 12 cases, exits 0 on pass
 python3 -m unittest discover -s tests      # 8 unit tests (determinism, no mutation, escalation, audit tamper)
+python3 attacks/run_attacks.py             # 31 boundary attacks, exits 0 only if all blocked
+python3 attacks/mutation_check.py          # each guard removed → suite must report OPEN
 python3 driver.py scripted                 # 13-proposal demo through the full pipeline, no key
-./launch.sh                                # live: CMA Worker + client-side Governor (needs .env with ANTHROPIC_API_KEY)
+./launch.sh                                # live: attest config → CMA Worker + client-side Governor (needs ANTHROPIC_API_KEY)
 ```
 
 ## Dashboard
