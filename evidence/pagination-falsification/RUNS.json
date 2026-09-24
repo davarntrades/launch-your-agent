@@ -1,0 +1,29 @@
+{
+  "schema": "pagination-falsification.runs.v1",
+  "source_repo_at_time_of_experiment": "davarntrades/launch-your-agent",
+  "workflow_repo": "davarntrades/Morrison-Runtime-Governance (holds ANTHROPIC_API_KEY)",
+  "runs": [
+    {"label": "attempt 1 (harness bug: fabricated SHA)", "run_id": 35931801588, "conclusion": "failure",
+     "note": "checkout ref was not a real commit hash (only its 7-char prefix was genuine); failed before reaching the API; no spend"},
+    {"label": "attempt 2 (harness bug: bad content shape)", "run_id": 35932071669, "conclusion": "success",
+     "note": "session create used bare-string content; POST /sessions -> 400; no proposals submitted; no spend",
+     "commit": "08ebaf971456cd36f9de927c28d2ac2df26f94a9"},
+    {"label": "MAIN RUN: 180-proposal live drive", "run_id": 35932071669, "job_id": 107420704432, "conclusion": "success",
+     "commit": "08ebaf971456cd36f9de927c28d2ac2df26f94a9",
+     "note": "second job in the same workflow run after the fix; hit the 45-minute internal safety cutoff at 111/180 proposals answered; all 111 AUTHORIZE",
+     "session_id": "sesn_01KxSMqHSa28y7quCNRtC6uA", "environment_id": "env_01QAgeg5FQeBrRSxics9pdS9",
+     "model": "claude-opus-5-5", "list_cost_usd": "1.90"},
+    {"label": "readback v1 (ground truth reader failed: limit=5000 not allowed)", "run_id": 35936093263, "job_id": 107433353640,
+     "commit": "4e56341e20189313ec945d868aaa9e37779c2ca8", "conclusion": "success",
+     "note": "no new proposals; discovered server max limit=1000 and the valid query-parameter list from live error bodies"},
+    {"label": "readback v2 (fixed: page= parameter, limit=1000)", "run_id": 35936190226, "job_id": 107433654876,
+     "commit": "d66cdb133ef8d6a67efde083e733e4f478aebbd7", "conclusion": "success",
+     "note": "no new proposals; DEFINITIVE: ground truth 1009 events, driver.list_events returns 1000, 9 missing, 2 execution-relevant"},
+    {"label": "page-2 detail (full content of the 9 missing events)", "run_id": 35936361448, "job_id": 107434179310,
+     "commit": "3601923e8348e153ae05d9fc7d7f4e59348e7b9f", "conclusion": "success",
+     "note": "no new proposals; identified the 2 execution-relevant missing events as file-110's tool_result (already mediated, AUTHORIZE) and file-111's tool_use (never answered, orphaned pending requires_action)"}
+  ],
+  "total_new_propose_action_calls_submitted": 111,
+  "total_verdicts": {"AUTHORIZE": 111, "WITHHOLD": 0, "ESCALATE": 0},
+  "note_on_verdict_distribution": "the kickoff task was a benign, bounded write_file sequence by design (this experiment targets the event-reader, not policy); no WITHHOLD/ESCALATE cases were expected or observed"
+}

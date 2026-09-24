@@ -1,0 +1,44 @@
+{
+  "_provenance": "verbatim from GitHub Actions job log, run 35936361448, job 107434179310, commit 3601923, session sesn_01KxSMqHSa28y7quCNRtC6uA",
+  "page1_call": {"status": 200, "request_id": "req_011CfMHGZhk5LdKwzvbi5EzE", "data_count": 1000, "next_page_present": true},
+  "page2_call": {"status": 200, "request_id": "req_011CfMHGafHvVu9AV4wZqwRH", "data_count": 9,
+                "path": "/sessions/sesn_01KxSMqHSa28y7quCNRtC6uA/events?limit=1000&page=page_jNXYDISVHtkewBJnaSOyMCp7WysowZpsOzqciBmvoztysrMP0YO6crM7K7L3eWazNXZz5gEBgA"},
+  "p1_p2_overlap_check": {"p1_count": 1000, "p2_count": 9, "overlap_count": 0, "overlap_ids": []},
+  "page2_events_full": [
+    {
+      "id": "sevt_01GKH9F5YbpVJCisThaAi1Ag", "type": "user.custom_tool_result",
+      "custom_tool_use_id": "sevt_01SM3BHGKZMiimjrJuXQSu2n", "is_error": false,
+      "processed_at": "2026-09-23T23:16:54.505195Z",
+      "content": [{"type": "text", "text": "{\"id\": \"sevt_01SM3BHGKZMiimjrJuXQSu2n\", \"verdict\": \"AUTHORIZE\", \"violated\": [], \"reasons\": [\"resulting state satisfies all constraints\"], \"state_summary\": {\"budget\": {\"ceiling_cents\": 100000, \"spent_cents\": 60000}, \"files\": [\"/contracts/vendor-acme.pdf\", \"/drafts/old-plan.md\", \"...(file-000.txt through file-110.txt)...\", \"/reports/q3-summary.md\"], \"trash\": [], \"roles_by_principal\": {\"alice\": [\"admin\"], \"bob\": [\"editor\"], \"contractor-kim\": [\"editor\"], \"worker\": [\"worker\"]}, \"outbox_count\": 0}}"}],
+      "_note": "this is the Governor's tool_result for /probe/file-110.txt (the LAST of the 111 proposals answered live). It is independently confirmed by the driving process's own printed AUTHORIZE line for sevt_01SM3BHGKZMiimjrJuXQSu2n in the original run's job log. This event is invisible to driver.list_events() only on a LATER re-read; the Governor mediated it correctly in real time."
+    },
+    {"id": "sevt_01DFnp2QKsoFvuJbbV5pwWWq", "type": "session.status_running", "processed_at": "2026-09-23T23:16:54.577750Z"},
+    {"id": "sevt_01WrihqNFhF3bYZfBDJ7V919", "type": "session.thread_status_running",
+     "agent_name": "governed-worker-pagination-probe-35932071669", "session_thread_id": "sthr_011fAztQrdb7M7fxpSZmDNEa",
+     "processed_at": "2026-09-23T23:16:54.577751Z"},
+    {"id": "sevt_01XXvXKc6Srxma2dg5PXgc9r", "type": "span.model_request_start", "processed_at": "2026-09-23T23:16:54.650011Z"},
+    {
+      "id": "sevt_01GGJ6uCF8DyUSpzqpR6KDrZ", "type": "agent.custom_tool_use", "name": "propose_action",
+      "input": {"action_type": "write_file", "target": "/probe/file-111.txt", "parameters": {"content": "probe entry 111"}},
+      "processed_at": "2026-09-23T23:16:57.111057Z",
+      "_note": "the 112th proposal. NEVER ANSWERED: no tool_result for this id exists anywhere in the 1009-event history. The drive loop's 45-minute wall-clock cutoff fired before it could be submitted to the Governor. Nothing executed for file-111 (file-110's own tool_result state_summary confirms files only up to file-110 exist)."
+    },
+    {"id": "sevt_01MPhPapQexBzGqv8M8Xox5f", "type": "span.model_request_end",
+     "model_request_start_id": "sevt_01XXvXKc6Srxma2dg5PXgc9r", "is_error": false,
+     "model_usage": {"cache_creation_input_tokens": 1686, "cache_read_input_tokens": 114979, "input_tokens": 2, "output_tokens": 117},
+     "processed_at": "2026-09-23T23:16:57.111058Z"},
+    {"id": "sevt_01BQKnxyinaPrxYtFMQkKfHL", "type": "session.thread_status_idle",
+     "agent_name": "governed-worker-pagination-probe-35932071669", "session_thread_id": "sthr_011fAztQrdb7M7fxpSZmDNEa",
+     "stop_reason": {"type": "requires_action", "event_ids": ["sevt_01GGJ6uCF8DyUSpzqpR6KDrZ"]},
+     "processed_at": "2026-09-23T23:16:57.207970Z",
+     "_note": "the session went idle waiting on file-111's UNANSWERED propose_action. A later process resuming this session via driver.list_events() would not see this event at all (page 2) and so would never discover or answer it."},
+    {"id": "sevt_01PDS9bpfGAHPUtuHvMcWx4A", "type": "session.usage", "processed_at": "2026-09-23T23:16:57.207971Z",
+     "usage": {"active_seconds": 330.547, "cache_creation": {"ephemeral_1h_input_tokens": 0, "ephemeral_5m_input_tokens": 116665},
+              "cache_read_input_tokens": 5203409, "input_tokens": 226, "output_tokens": 13327,
+              "list_cost": {"amount": "190", "currency": "USD"},
+              "server_tool_use": {"web_fetch_requests": 0, "web_search_requests": 0}}},
+    {"id": "sevt_01VNuBiKRfHWtCndvzniK9kF", "type": "session.status_idle",
+     "stop_reason": {"type": "requires_action", "event_ids": ["sevt_01GGJ6uCF8DyUSpzqpR6KDrZ"]},
+     "processed_at": "2026-09-23T23:16:57.207972Z"}
+  ]
+}

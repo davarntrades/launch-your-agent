@@ -1,0 +1,42 @@
+{
+  "_provenance": "verbatim from GitHub Actions job log, run 35936190226, job 107433654876, commit d66cdb1",
+  "prototype_reader": {"method": "driver.list_events(sid), unmodified", "count": 1000, "error": null},
+  "ground_truth_reader": {"method": "page", "event_count": 1009},
+  "ground_truth_pages": [
+    {"attempt": "first page, limit=5000", "status": 400, "request_id": "req_011CfMH7V2hRuY1AGF4UGgYi",
+     "response_body_if_not_ok": {"type": "error", "error": {"type": "invalid_request_error",
+       "message": "limit: must be greater than or equal to 1 and less than or equal to 1000"}}},
+    {"attempt": "first page, limit=2000", "status": 400, "request_id": "req_011CfMH7VVUqqyni6tQA6Ft2",
+     "response_body_if_not_ok": {"type": "error", "error": {"type": "invalid_request_error",
+       "message": "limit: must be greater than or equal to 1 and less than or equal to 1000"}}},
+    {"attempt": "first page, limit=1000", "status": 200, "request_id": "req_011CfMH7VuYWib5eMSTMdTGF",
+     "response_keys": ["data", "next_page"], "data_count": 1000, "has_more_field": null,
+     "next_page_field": "page_jNXYDISVHtkewBJnaSOyMCp7WysowZpsOzqciBmvoztysrMP0YO6crM7K7L3eWazNXZz5gEBgA"},
+    {"attempt": "hop1 candidate=page", "status": 200, "request_id": "req_011CfMH7XMrFNMdSXkVpT3HJ",
+     "response_keys": ["data"], "data_count": 9, "has_more_field": null, "next_page_field": null}
+  ],
+  "comparison": {
+    "ground_truth_count": 1009, "prototype_count": 1000, "missing_count": 9,
+    "execution_relevant_missing": [
+      {"id": "sevt_01GGJ6uCF8DyUSpzqpR6KDrZ", "type": "agent.custom_tool_use", "name": "propose_action"},
+      {"id": "sevt_01GKH9F5YbpVJCisThaAi1Ag", "type": "user.custom_tool_result"}
+    ],
+    "A_prototype_misses_events": true,
+    "C_any_missing_event_execution_relevant": true
+  },
+  "known_answered_cross_check": {
+    "known_answered_count": 102,
+    "known_answered_in_prototype_reader": 102, "known_answered_missing_from_prototype_reader": [],
+    "known_answered_in_ground_truth": 102, "known_answered_missing_from_ground_truth": []
+  },
+  "event_type_distribution": {
+    "ground_truth": {"session.thread_status_running": 112, "span.model_request_start": 112,
+      "session.thread_status_idle": 112, "span.model_request_end": 112, "session.usage": 112,
+      "user.custom_tool_result": 111, "agent.custom_tool_use": 112, "session.status_running": 112,
+      "session.status_idle": 112, "user.message": 1, "agent.thinking": 1},
+    "prototype_restricted_to_ids_it_returned": {"session.thread_status_running": 111,
+      "span.model_request_start": 111, "session.thread_status_idle": 111, "span.model_request_end": 111,
+      "session.usage": 111, "user.custom_tool_result": 110, "agent.custom_tool_use": 111,
+      "session.status_running": 111, "session.status_idle": 111, "user.message": 1, "agent.thinking": 1}
+  }
+}
